@@ -80,10 +80,9 @@ Static output goes to `/out` — ready to deploy anywhere.
 
 ```
 ExitZero/
-├── .github/workflows/          # GitHub Actions CI/CD
-├── interview_questions_json_data/  # Question bank (JSON per topic)
-├── public/                     # Static assets, icons, manifest
-├── src/                        # Next.js app source
+├── .github/workflows/    # GitHub Actions CI/CD
+├── public/               # Static assets, icons, manifest
+├── src/                  # Next.js app source (contains src/data/ static question banks)
 ├── next.config.ts
 └── package.json
 ```
