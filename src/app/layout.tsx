@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DevOps & Cloud Interview Prep",
-  description: "Study Guide and Interview Preparation for Docker, Kubernetes, AWS, Terraform, Jenkins, and DevOps.",
+  title: "ExitZero — DevOps Interview Prep",
+  description: "Premium study guide and interview preparation for Docker, Kubernetes, AWS, Terraform, Jenkins, and DevOps.",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -33,6 +33,8 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        <link rel="icon" type="image/png" href="./icon-192.png" />
+        <link rel="shortcut icon" type="image/png" href="./icon-192.png" />
         <link rel="manifest" href="./manifest.json" />
         <link rel="apple-touch-icon" href="./icon-192.png" />
         <meta name="theme-color" content="#111827" />
@@ -52,7 +54,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <body className="min-h-full flex flex-col bg-[#111827] text-[#f1f5f9]">
         {children}
       </body>
     </html>
