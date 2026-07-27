@@ -1,36 +1,116 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ExitZero 💻
 
-## Getting Started
+> **`$ exit 0` — Interview prep for engineers.**
 
-First, run the development server:
+A DevOps interview prep PWA covering Docker, Kubernetes, AWS, Terraform, Jenkins, and DevOps fundamentals. Study on any device, install it as a mobile app, and use it offline.
+
+[![Deployed on GitHub Pages](https://img.shields.io/badge/Deployed-GitHub%20Pages-22c55e?style=flat-square&logo=github)](https://srinivassarkar.github.io/ExitZero)
+![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js)
+![PWA](https://img.shields.io/badge/PWA-Ready-2563eb?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-f1f5f9?style=flat-square)
+
+---
+
+## What is ExitZero?
+
+ExitZero is a progressive web app built for DevOps and cloud engineers preparing for technical interviews. `exit 0` in bash means success — no errors, clean run. That's the goal.
+
+600+ curated questions across 6 topics, organized by category and difficulty. Mark questions as Studying or Mastered, track your progress, and install the app on your phone for offline access during your commute or before an interview.
+
+---
+
+## Topics Covered
+
+| Subject | Questions |
+|---|---|
+| 🐳 Docker | 100 |
+| ☸️ Kubernetes | 100 |
+| ☁️ AWS | 100 |
+| 🌍 Terraform | 100 |
+| 🔧 Jenkins | 180 |
+| ⚙️ DevOps | 145 |
+
+---
+
+## Features
+
+- **Study Mode** — Browse questions by topic and category, reveal answers on demand
+- **Progress Tracking** — Mark each question as Unmarked / Studying / Mastered
+- **Difficulty Levels** — Easy, Medium, and Hard questions per topic
+- **Offline Ready** — Full PWA with service worker caching, works without internet
+- **Installable** — Add to home screen on Android and iOS, works like a native app
+- **Persistent Progress** — All study state saved locally, survives refresh and reinstall
+- **Search** — Find any question across all topics instantly
+- **Bookmarks** — Save questions to review later
+
+---
+
+## Tech Stack
+
+- **Framework** — Next.js 15 (static export)
+- **Styling** — Tailwind CSS
+- **Deployment** — GitHub Pages via GitHub Actions
+- **PWA** — Service worker, web app manifest, offline cache
+- **Data** — Static JSON question bank, no backend required
+
+---
+
+## Running Locally
 
 ```bash
+git clone https://github.com/srinivassarkar/ExitZero.git
+cd ExitZero
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**Build for production:**
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+```
 
-## Learn More
+Static output goes to `/out` — ready to deploy anywhere.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+ExitZero/
+├── .github/workflows/          # GitHub Actions CI/CD
+├── interview_questions_json_data/  # Question bank (JSON per topic)
+├── public/                     # Static assets, icons, manifest
+├── src/                        # Next.js app source
+├── next.config.ts
+└── package.json
+```
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deployment
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The app is automatically deployed to GitHub Pages on every push to `main` via GitHub Actions. The workflow builds the Next.js static export and pushes to the `gh-pages` branch.
+
+---
+
+## Contributing
+
+Questions, corrections, or new topics — PRs are welcome.
+
+1. Fork the repo
+2. Create a branch: `git checkout -b feat/your-feature`
+3. Commit: `git commit -m "feat: your change"`
+4. Push and open a PR
+
+---
+
+## License
+
+MIT — free to use, fork, and build on.
+
+---
+
+<p align="center">Built by <a href="https://github.com/srinivassarkar">srinivassarkar</a> &nbsp;·&nbsp; <code>$ exit 0</code></p>
