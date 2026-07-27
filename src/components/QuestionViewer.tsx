@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Question } from "@/data";
-import { StudyStatus } from "@/hooks/useStudyState";
+import { StudyStatus, SRSData } from "@/hooks/useStudyState";
 import {
   Heart,
   ChevronLeft,
@@ -21,31 +21,97 @@ import {
 interface QuestionViewerProps {
   question: Question;
   isFavorite: boolean;
-  status: StudyStatus;
+  srsData: Record<string, SRSData>;
+  timerMode: boolean;
+  timerDuration: number;
+  timerAutoAdvance: boolean;
   onToggleFavorite: () => void;
-  onStatusChange: (status: StudyStatus) => void;
+  onSRSReview: (score: "Again" | "Good" | "Easy") => void;
   onPrev: () => void;
   onNext: () => void;
   onRandom: () => void;
+  addToast: (msg: string, duration?: number) => void;
+  isScopedSession?: boolean;
+  techId: string;
 }
 
 export function QuestionViewer({
   question,
   isFavorite,
-  status,
+  srsData,
+  timerMode,
+  timerDuration,
+  timerAutoAdvance,
   onToggleFavorite,
-  onStatusChange,
+  onSRSReview,
   onPrev,
   onNext,
   onRandom,
+  addToast,
+  isScopedSession = false,
+  techId,
 }: QuestionViewerProps) {
   const [showAnswer, setShowAnswer] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [animateHeart, setAnimateHeart] = useState(false);
 
-  // Hide answer when question changes
+  // Timer States
+  const [timeLeft, setTimeLeft] = useState(timerDuration);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const autoAdvanceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Reset answer visibility and timer when question changes
   useEffect(() => {
     setShowAnswer(false);
-  }, [question.id]);
+    setTimeLeft(timerDuration);
+    
+    // Clear any existing timeouts/intervals
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    if (autoAdvanceTimeoutRef.current) clearTimeout(autoAdvanceTimeoutRef.current);
+
+    if (timerMode) {
+      startTimer();
+    }
+
+    return () => {
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      if (autoAdvanceTimeoutRef.current) clearTimeout(autoAdvanceTimeoutRef.current);
+    };
+  }, [question.id, timerMode, timerDuration]);
+
+  // Start timer interval
+  const startTimer = () => {
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    
+    timerIntervalRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+          handleTimerExpire();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  // Pause timer when answer is revealed
+  useEffect(() => {
+    if (showAnswer && timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+    }
+  }, [showAnswer]);
+
+  const handleTimerExpire = () => {
+    setShowAnswer(true);
+    addToast("Time's up — answer revealed", 2);
+
+    if (timerAutoAdvance) {
+      autoAdvanceTimeoutRef.current = setTimeout(() => {
+        onNext();
+      }, 8000);
+    }
+  };
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -53,296 +119,386 @@ export function QuestionViewer({
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const handleBookmarkClick = () => {
+    onToggleFavorite();
+    setAnimateHeart(true);
+    setTimeout(() => setAnimateHeart(false), 200);
+  };
+
+  // Get SRS Pill Details
+  const getSrsPill = () => {
+    const record = srsData[`${techId}-${question.id}`];
+    if (!record || record.status === "unseen") {
+      return { text: "New", color: "border-[#475569] text-[#475569]" };
+    }
+    if (record.status === "mastered") {
+      return { text: "Mastered", color: "border-[#22c55e] text-[#22c55e]" };
+    }
+
+    const nextReviewDate = new Date(record.nextReview);
+    const diffTime = nextReviewDate.getTime() - Date.now();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 0) {
+      return { text: "Due today", color: "border-[#f59e0b] text-[#f59e0b]" };
+    }
+    return { text: `Review in ${diffDays}d`, color: "border-[#2563eb] text-[#2563eb]" };
+  };
+
+  const srsPill = getSrsPill();
+
+  // Progress Percent for Timer Bar
+  const timerPercent = (timeLeft / timerDuration) * 100;
+  let timerColor = "bg-[#22c55e]";
+  let timerTextColor = "text-[#22c55e]";
+
+  if (timerPercent < 20) {
+    timerColor = "bg-[#ef4444]";
+    timerTextColor = "text-[#ef4444]";
+  } else if (timerPercent <= 50) {
+    timerColor = "bg-[#f59e0b]";
+    timerTextColor = "text-[#f59e0b]";
+  }
+
+  // Format Time Left to MM:SS
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-6 md:p-8 max-w-4xl mx-auto w-full flex flex-col space-y-6">
-      {/* Question Header Card */}
-      <div className="bg-card border border-border rounded-xl p-5 md:p-6 shadow-xs flex flex-col space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <span className="text-xs font-mono text-muted-foreground uppercase tracking-widest font-semibold">
-              Question {question.questionNumber}
-            </span>
-            <span
-              className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wide ${
-                question.difficulty === "Easy"
-                  ? "bg-emerald-500/10 text-emerald-500"
-                  : question.difficulty === "Medium"
-                  ? "bg-amber-500/10 text-amber-500"
-                  : "bg-rose-500/10 text-rose-500"
-              }`}
-            >
-              {question.difficulty}
-            </span>
+    <div className="flex-1 flex flex-col min-h-0 max-w-4xl mx-auto w-full px-4 py-4 md:py-6 md:px-8 overflow-hidden">
+      {/* 1. Question Card (Fixed at the top) */}
+      <div className="bg-[#1a2332] border border-border/80 rounded-xl overflow-hidden shadow-lg relative flex flex-col shrink-0 mb-4">
+        {/* Timer Progress Bar */}
+        {timerMode && (
+          <div className="w-full h-[3px] bg-slate-800 absolute top-0 left-0 right-0 z-10">
+            <div
+              className={`h-full ${timerColor} transition-all duration-1000 ease-linear`}
+              style={{ width: `${timerPercent}%` }}
+            />
+          </div>
+        )}
+
+        <div className="p-5 md:p-6 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 flex-wrap gap-y-1.5">
+              <span className="text-xs font-mono text-[#94a3b8] uppercase tracking-widest font-semibold">
+                Question {question.questionNumber}
+              </span>
+              <span
+                className={`px-2 py-0.5 border rounded text-[10px] uppercase font-bold tracking-wide bg-transparent ${
+                  question.difficulty === "Easy"
+                    ? "border-[#22c55e] text-[#22c55e]"
+                    : question.difficulty === "Medium"
+                    ? "border-amber-500 text-amber-500"
+                    : "border-rose-500 text-rose-500"
+                }`}
+              >
+                {question.difficulty}
+              </span>
+
+              {/* Spaced Repetition status pill */}
+              <span
+                className={`px-2 py-0.5 border rounded font-mono text-[9px] font-bold bg-transparent select-none ${srsPill.color}`}
+              >
+                {srsPill.text}
+              </span>
+            </div>
+
+            <div className="flex items-center space-x-3 shrink-0">
+              {/* Timer Text */}
+              {timerMode && (
+                <span
+                  className={`font-mono text-xs font-bold leading-none ${timerTextColor} ${
+                    timeLeft <= 10 ? "animate-timer-pulse" : ""
+                  }`}
+                >
+                  {formatTime(timeLeft)}
+                </span>
+              )}
+
+              {/* Bookmark Toggle Heart */}
+              <button
+                onClick={handleBookmarkClick}
+                className={`p-2 rounded-lg border transition-all cursor-pointer ${
+                  isFavorite
+                    ? "border-rose-500/20 bg-rose-500/10 text-[#ef4444]"
+                    : "border-slate-800 hover:bg-slate-800 text-[#94a3b8] hover:text-white"
+                } ${animateHeart ? "scale-130" : "scale-100"} duration-200`}
+                title={isFavorite ? "Remove Bookmark" : "Save Bookmark"}
+              >
+                <Heart className={`w-4 h-4 ${isFavorite ? "fill-[#ef4444]" : ""}`} />
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center space-x-2">
-            {/* Favorite button */}
-            <button
-              onClick={onToggleFavorite}
-              className={`p-2 rounded-lg border transition-all ${
-                isFavorite
-                  ? "border-rose-500/20 bg-rose-500/10 text-rose-500"
-                  : "border-border hover:bg-muted text-muted-foreground hover:text-foreground"
-              }`}
-              title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
-            >
-              <Heart className={`w-4 h-4 ${isFavorite ? "fill-rose-500" : ""}`} />
-            </button>
-          </div>
-        </div>
-
-        {/* Question Text */}
-        <h2 className="text-lg md:text-xl font-bold text-foreground leading-snug">
-          {question.question}
-        </h2>
-
-        {/* Study State selectors */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/50">
-          <span className="text-xs text-muted-foreground mr-1">Study Status:</span>
-          <button
-            onClick={() => onStatusChange("unseen")}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-              status === "unseen" || !status
-                ? "bg-secondary text-foreground font-semibold border border-border"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-          >
-            Unmarked
-          </button>
-          <button
-            onClick={() => onStatusChange("studying")}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center space-x-1.5 ${
-              status === "studying"
-                ? "bg-amber-500/10 text-amber-500 border border-amber-500/20 font-semibold"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-            <span>Studying</span>
-          </button>
-          <button
-            onClick={() => onStatusChange("mastered")}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center space-x-1.5 ${
-              status === "mastered"
-                ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-semibold"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            <span>Mastered</span>
-          </button>
+          {/* Question Title */}
+          <h2 className="text-base md:text-lg lg:text-xl font-bold text-[#f1f5f9] leading-snug">
+            {question.question}
+          </h2>
         </div>
       </div>
 
-      {/* Toggle Answer Button */}
-      <button
-        onClick={() => setShowAnswer(!showAnswer)}
-        className={`w-full py-4 rounded-xl font-bold text-sm tracking-wide border flex items-center justify-center space-x-2 transition-all ${
-          showAnswer
-            ? "bg-card border-border hover:bg-muted text-foreground"
-            : "bg-primary text-primary-foreground border-transparent hover:bg-primary/95 shadow-md shadow-primary/10"
-        }`}
-      >
-        {showAnswer ? (
-          <>
-            <EyeOff className="w-4 h-4" />
-            <span>Hide Answer</span>
-          </>
-        ) : (
-          <>
-            <Eye className="w-4 h-4" />
-            <span>Reveal Answer</span>
-          </>
-        )}
-      </button>
+      {/* 2. Scrollable Answer Details Area */}
+      <div className="flex-1 overflow-y-auto space-y-4 pr-1 min-h-0">
+        {/* Reveal Answer Button */}
+        <button
+          onClick={() => setShowAnswer(!showAnswer)}
+          className={`w-full py-3.5 rounded-xl font-bold text-sm tracking-wide border flex items-center justify-center space-x-2 transition-all cursor-pointer bg-[#1a2332] hover:bg-slate-800 text-[#f1f5f9] ${
+            showAnswer
+              ? "border-[#22c55e]"
+              : "border-[#2563eb]"
+          }`}
+        >
+          {showAnswer ? (
+            <>
+              <EyeOff className="w-4 h-4" />
+              <span>Hide Answer</span>
+            </>
+          ) : (
+            <>
+              <Eye className="w-4 h-4" />
+              <span>Reveal Answer</span>
+            </>
+          )}
+        </button>
 
-      {/* Answer Content */}
-      {showAnswer && (
-        <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
-          {/* Answer Description */}
-          <div className="bg-card border border-border rounded-xl p-5 md:p-6 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
-              Answer Explanation
-            </h3>
-            <p className="text-foreground leading-relaxed text-sm md:text-base whitespace-pre-wrap">
-              {question.answer}
-            </p>
+        {showAnswer && (
+          <div className="space-y-4 pb-4 animate-in fade-in slide-in-from-top-4 duration-300">
+            {/* Answer Explanation */}
+            <div className="bg-[#1a2332] border border-border/80 rounded-xl p-5 md:p-6 shadow-xs space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-primary">
+                Answer Explanation
+              </h3>
+              <p className="text-[#f1f5f9] leading-relaxed text-sm md:text-base whitespace-pre-wrap">
+                {question.answer}
+              </p>
 
-            {/* Key Points */}
-            {question.keyPoints && question.keyPoints.length > 0 && (
-              <div className="pt-4 border-t border-border/50">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2.5">
-                  Key Points
-                </h4>
-                <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-foreground">
-                  {question.keyPoints.map((pt, i) => (
-                    <li key={i} className="flex items-start space-x-2">
-                      <span className="text-primary mt-1 shrink-0">•</span>
-                      <span>{pt}</span>
-                    </li>
-                  ))}
-                </ul>
+              {/* Key Points */}
+              {question.keyPoints && question.keyPoints.length > 0 && (
+                <div className="pt-4 border-t border-slate-800">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#94a3b8] mb-2.5">
+                    Key Points
+                  </h4>
+                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-[#f1f5f9]">
+                    {question.keyPoints.map((pt, i) => (
+                      <li key={i} className="flex items-start space-x-2">
+                        <span className="text-[#2563eb] mt-1 shrink-0">•</span>
+                        <span>{pt}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* Code Blocks / Configurations */}
+            {question.codeBlocks && question.codeBlocks.length > 0 && (
+              <div className="space-y-2.5">
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] px-1">
+                  Commands & Configurations
+                </h3>
+                <div className="space-y-2.5">
+                  {question.codeBlocks.map((block, idx) => {
+                    const blockId = `${question.id}-${idx}`;
+                    return (
+                      <div
+                        key={idx}
+                        className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-lg"
+                      >
+                        <div className="flex items-center justify-between px-4 py-2 border-b border-slate-800 bg-[#111827] text-slate-400 text-xs font-mono select-none">
+                          <span>{block.filename || block.language || "terminal"}</span>
+                          <button
+                            onClick={() => copyToClipboard(block.code, blockId)}
+                            className="flex items-center space-x-1.5 hover:text-slate-200 transition-colors cursor-pointer"
+                          >
+                            {copiedId === blockId ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                <span className="text-emerald-400">Copied!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>Copy</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                        <pre className="p-4 overflow-x-auto text-xs md:text-sm font-mono text-slate-200 leading-relaxed bg-[#111827]/40">
+                        <code className="animate-cursor-blink">{block.code}</code>
+                      </pre>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
-          </div>
 
-          {/* Code Blocks / Commands */}
-          {question.codeBlocks && question.codeBlocks.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
-                Commands & Configurations
-              </h3>
-              <div className="space-y-3">
-                {question.codeBlocks.map((block, idx) => {
-                  const blockId = `${question.id}-${idx}`;
-                  return (
-                    <div
-                      key={idx}
-                      className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg"
-                    >
-                      {/* Header */}
-                      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-800 bg-slate-950 text-slate-400 text-xs font-mono">
-                        <span className="lowercase">
-                          {block.filename || block.language || "terminal"}
-                        </span>
-                        <button
-                          onClick={() => copyToClipboard(block.code, blockId)}
-                          className="flex items-center space-x-1.5 hover:text-slate-200 transition-colors"
-                        >
-                          {copiedId === blockId ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-emerald-400" />
-                              <span className="text-emerald-400">Copied!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3.5 h-3.5" />
-                              <span>Copy</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                      {/* Code */}
-                      <pre className="p-4 overflow-x-auto text-xs md:text-sm font-mono text-slate-100 leading-relaxed bg-slate-900">
-                        <code>{block.code}</code>
-                      </pre>
-                    </div>
-                  );
-                })}
+            {/* Warnings callout */}
+            {question.warnings && question.warnings.length > 0 && (
+              <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 p-4 rounded-xl flex items-start space-x-3 shadow-xs">
+                <AlertOctagon className="w-5 h-5 shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <span className="font-bold uppercase tracking-wider text-[10px] block mb-1">
+                    Warnings & Risks
+                  </span>
+                  <ul className="list-disc list-inside space-y-1">
+                    {question.warnings.map((warn, i) => (
+                      <li key={i}>{warn}</li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Warnings callout */}
-          {question.warnings && question.warnings.length > 0 && (
-            <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 p-4 rounded-xl flex items-start space-x-3">
-              <AlertOctagon className="w-5 h-5 shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <span className="font-bold uppercase tracking-wider text-[10px] block mb-1">
-                  Warnings & Risks
-                </span>
-                <ul className="list-disc list-inside space-y-1">
-                  {question.warnings.map((warn, i) => (
-                    <li key={i}>{warn}</li>
-                  ))}
-                </ul>
+            {/* Best Practices callout */}
+            {question.bestPractices && question.bestPractices.length > 0 && (
+              <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 p-4 rounded-xl flex items-start space-x-3 shadow-xs">
+                <Lightbulb className="w-5 h-5 shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <span className="font-bold uppercase tracking-wider text-[10px] block mb-1">
+                    Best Practices
+                  </span>
+                  <ul className="list-disc list-inside space-y-1">
+                    {question.bestPractices.map((bp, i) => (
+                      <li key={i}>{bp}</li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Best Practices callout */}
-          {question.bestPractices && question.bestPractices.length > 0 && (
-            <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 p-4 rounded-xl flex items-start space-x-3">
-              <Lightbulb className="w-5 h-5 shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <span className="font-bold uppercase tracking-wider text-[10px] block mb-1">
-                  Best Practices
-                </span>
-                <ul className="list-disc list-inside space-y-1">
-                  {question.bestPractices.map((bp, i) => (
-                    <li key={i}>{bp}</li>
-                  ))}
-                </ul>
+            {/* Interview Notes & Tips */}
+            {question.interviewNotes && question.interviewNotes.length > 0 && (
+              <div className="bg-amber-500/10 border border-amber-500/20 text-amber-500 p-4 rounded-xl flex items-start space-x-3 shadow-xs">
+                <FileText className="w-5 h-5 shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <span className="font-bold uppercase tracking-wider text-[10px] block mb-1">
+                    Interview Notes
+                  </span>
+                  <ul className="list-disc list-inside space-y-1">
+                    {question.interviewNotes.map((note, i) => (
+                      <li key={i}>{note}</li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Interview Notes & Tips */}
-          {question.interviewNotes && question.interviewNotes.length > 0 && (
-            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-500 p-4 rounded-xl flex items-start space-x-3">
-              <FileText className="w-5 h-5 shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <span className="font-bold uppercase tracking-wider text-[10px] block mb-1">
-                  Interview Notes
-                </span>
-                <ul className="list-disc list-inside space-y-1">
-                  {question.interviewNotes.map((note, i) => (
-                    <li key={i}>{note}</li>
-                  ))}
-                </ul>
+            {/* Examples callout */}
+            {question.examples && question.examples.length > 0 && (
+              <div className="bg-[#2563eb]/10 border border-[#2563eb]/20 text-[#3b82f6] p-4 rounded-xl flex items-start space-x-3 shadow-xs">
+                <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <span className="font-bold uppercase tracking-wider text-[10px] block mb-1">
+                    Real-world Examples
+                  </span>
+                  <ul className="list-disc list-inside space-y-1">
+                    {question.examples.map((ex, i) => (
+                      <li key={i}>{ex}</li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Examples callout */}
-          {question.examples && question.examples.length > 0 && (
-            <div className="bg-primary/10 border border-primary/20 text-primary p-4 rounded-xl flex items-start space-x-3">
-              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <span className="font-bold uppercase tracking-wider text-[10px] block mb-1">
-                  Real-world Examples
-                </span>
-                <ul className="list-disc list-inside space-y-1">
-                  {question.examples.map((ex, i) => (
-                    <li key={i}>{ex}</li>
-                  ))}
-                </ul>
+            {/* Tags */}
+            {question.tags && question.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1 select-none">
+                {question.tags.map((tag, i) => (
+                  <span
+                    key={i}
+                    className="bg-slate-800 text-[#94a3b8] border border-border/40 text-[10px] font-semibold px-2.5 py-0.5 rounded-full"
+                  >
+                    #{tag}
+                  </span>
+                ))}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Tags */}
-          {question.tags && question.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 pt-2">
-              {question.tags.map((tag, i) => (
-                <span
-                  key={i}
-                  className="bg-muted text-muted-foreground border border-border text-[10px] font-medium px-2 py-0.5 rounded-full"
+            {/* SRS Score Options (Moved to the very end of answer details) */}
+            <div className="bg-[#1a2332] border border-border/80 rounded-xl p-5 shadow-xs space-y-3 mt-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#94a3b8] block">
+                Record Review Difficulty
+              </span>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={() => {
+                    onSRSReview("Again");
+                    addToast("Review set to Again (Study mode)", 2);
+                  }}
+                  className="flex-1 py-2.5 bg-transparent border border-rose-500 text-rose-500 hover:bg-rose-500/10 font-bold text-xs rounded-lg transition-all cursor-pointer"
                 >
-                  #{tag}
-                </span>
-              ))}
+                  Again (Not sure)
+                </button>
+                <button
+                  onClick={() => {
+                    onSRSReview("Good");
+                    addToast("Review set to Good (Scheduled)", 2);
+                  }}
+                  className="flex-1 py-2.5 bg-transparent border border-[#2563eb] text-[#2563eb] hover:bg-[#2563eb]/10 font-bold text-xs rounded-lg transition-all cursor-pointer"
+                >
+                  Good (Knew it)
+                </button>
+                <button
+                  onClick={() => {
+                    onSRSReview("Easy");
+                    addToast("Review set to Easy (Mastered)", 2);
+                  }}
+                  className="flex-1 py-2.5 bg-transparent border border-[#22c55e] text-[#22c55e] hover:bg-[#22c55e]/10 font-bold text-xs rounded-lg transition-all cursor-pointer"
+                >
+                  Easy (Too easy)
+                </button>
+              </div>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* 3. Navigation Footer (Fixed at the bottom) */}
+      <div className="pt-4 border-t border-slate-800 bg-[#111827] shrink-0 mt-4 grid grid-cols-3 gap-2 sm:gap-4 w-full">
+        {/* Column 1 */}
+        <div className="flex justify-start">
+          {!timerMode ? (
+            <button
+              onClick={onPrev}
+              className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-3 py-2 border border-slate-800 rounded-lg text-xs sm:text-sm text-[#f1f5f9] hover:bg-slate-800 font-semibold transition-all cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden xs:inline">Previous</span>
+              <span className="xs:hidden">Prev</span>
+            </button>
+          ) : (
+            <div />
           )}
         </div>
-      )}
 
-      {/* Navigation Footer */}
-      <div className="pt-6 border-t border-border flex items-center justify-between bg-background shrink-0 pb-10">
-        <button
-          onClick={onPrev}
-          className="flex items-center space-x-1.5 px-4 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-muted font-medium transition-all"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          <span>Previous</span>
-        </button>
+        {/* Column 2 */}
+        <div className="flex justify-center">
+          <button
+            onClick={onRandom}
+            className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-3 py-2 border border-slate-800 rounded-lg text-xs sm:text-sm text-[#f1f5f9] hover:bg-slate-800 font-semibold transition-all cursor-pointer"
+            title="Pick a Random Question"
+          >
+            <Shuffle className="w-3.5 h-3.5 shrink-0" />
+            <span>Random</span>
+          </button>
+        </div>
 
-        <button
-          onClick={onRandom}
-          className="flex items-center space-x-1.5 px-4 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-muted font-medium transition-all"
-          title="Pick a Random Question"
-        >
-          <Shuffle className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Random</span>
-        </button>
-
-        <button
-          onClick={onNext}
-          className="flex items-center space-x-1.5 px-4 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-muted font-medium transition-all"
-        >
-          <span>Next</span>
-          <ChevronRight className="w-4 h-4" />
-        </button>
+        {/* Column 3 */}
+        <div className="flex justify-end">
+          <button
+            onClick={onNext}
+            className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-3 py-2 border border-slate-800 rounded-lg text-xs sm:text-sm text-[#f1f5f9] hover:bg-slate-800 font-semibold transition-all cursor-pointer"
+          >
+            <span className="hidden xs:inline">Next Question</span>
+            <span className="xs:hidden">Next</span>
+            <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+          </button>
+        </div>
       </div>
     </div>
   );

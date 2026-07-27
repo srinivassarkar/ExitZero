@@ -1,7 +1,7 @@
 {
-  "name": "DevOps & Cloud Interview Prep",
-  "short_name": "Interview Prep",
-  "description": "Study Guide and Interview Preparation for Docker, Kubernetes, AWS, Terraform, Jenkins, and DevOps.",
+  "name": "ExitZero",
+  "short_name": "ExitZero",
+  "description": "Premium DevOps and Cloud Interview Prep PWA.",
   "start_url": "./",
   "display": "standalone",
   "orientation": "any",

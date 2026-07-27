@@ -3,7 +3,8 @@
 import React from "react";
 import { technologies, rawData, TechnologyData, Category } from "@/data";
 import { StudyStatus } from "@/hooks/useStudyState";
-import { BookOpen, CheckCircle, Circle, ChevronRight, X } from "lucide-react";
+import { MasteryRing } from "./MasteryRing";
+import { BookOpen, X } from "lucide-react";
 
 interface SidebarProps {
   activeTechId: string;
@@ -11,7 +12,8 @@ interface SidebarProps {
   activeCategoryId: number;
   setActiveCategoryId: (id: number) => void;
   setActiveQuestionId: (id: number) => void;
-  progress: Record<number, StudyStatus>;
+  progress: Record<string, StudyStatus>;
+  bookmarks: string[];
   isOpen: boolean;
   onClose: () => void;
 }
@@ -23,6 +25,7 @@ export function Sidebar({
   setActiveCategoryId,
   setActiveQuestionId,
   progress,
+  bookmarks,
   isOpen,
   onClose,
 }: SidebarProps) {
@@ -38,7 +41,7 @@ export function Sidebar({
     tech.categories.forEach((cat) => {
       cat.questions.forEach((q) => {
         total++;
-        if (progress[q.id] === "mastered") {
+        if (progress[`${techId}-${q.id}`] === "mastered") {
           mastered++;
         }
       });
@@ -50,11 +53,12 @@ export function Sidebar({
   // Calculate category stats
   const getCatStats = (cat: Category) => {
     let total = cat.questions.length;
-    let mastered = cat.questions.filter((q) => progress[q.id] === "mastered").length;
+    let mastered = cat.questions.filter((q) => progress[`${activeTechId}-${q.id}`] === "mastered").length;
     return { total, mastered };
   };
 
   const activeTech: TechnologyData = rawData[activeTechId];
+  const isSavedActive = activeTechId === "saved";
 
   return (
     <>
@@ -68,37 +72,72 @@ export function Sidebar({
 
       {/* Sidebar Panel */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-40 w-72 bg-card border-r border-border flex flex-col transition-transform duration-200 ease-in-out md:translate-x-0 md:static md:h-screen ${
+        className={`fixed top-0 bottom-0 left-0 z-40 w-72 bg-[#1a2332] border-r border-border flex flex-col transition-transform duration-200 ease-in-out md:translate-x-0 md:static md:h-screen ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* Sidebar Header */}
-        <div className="h-14 border-b border-border flex items-center justify-between px-4">
+        <div className="h-14 border-b border-border flex items-center justify-between px-4 bg-[#1a2332]">
           <div className="flex items-center space-x-2">
-            <BookOpen className="w-5 h-5 text-primary" />
-            <h1 className="font-bold text-base tracking-tight text-foreground">
-              Interview Prep
+            <BookOpen className="w-5 h-5 text-[#22c55e]" />
+            <h1 className="font-bold text-base tracking-tight text-[#f1f5f9] font-mono">
+              ExitZero
             </h1>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted md:hidden"
+            className="p-1.5 rounded-md text-[#475569] hover:text-[#94a3b8] hover:bg-slate-800 md:hidden"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Technologies List */}
-        <div className="flex-1 overflow-y-auto px-2 py-4 space-y-6">
+        {/* List scroll container */}
+        <div className="flex-1 overflow-y-auto px-2 py-4 space-y-4 bg-[#1a2332]">
+          {/* Bookmarks Section */}
+          <div className="space-y-1">
+            <button
+              onClick={() => {
+                setActiveTechId("saved");
+                setActiveCategoryId(-1);
+                setActiveQuestionId(-1);
+                onClose();
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border-l-2 ${
+                isSavedActive
+                  ? "bg-[#1a2332] text-[#f1f5f9] border-[#22c55e]"
+                  : "text-[#475569] border-transparent hover:text-[#94a3b8]"
+              }`}
+            >
+              <div className="flex items-center space-x-2.5 truncate">
+                <span className={`text-base select-none ${isSavedActive ? "text-[#22c55e]" : "text-[#475569]"}`}>
+                  ♥
+                </span>
+                <span className="truncate">Saved Questions</span>
+              </div>
+              {bookmarks.length > 0 && (
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border font-mono ${
+                  isSavedActive
+                    ? "border-[#22c55e] text-[#22c55e]"
+                    : "border-slate-800 text-[#475569]"
+                }`}>
+                  {bookmarks.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Subjects Navigation */}
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-3 block mb-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#475569] px-3 block mb-2 font-mono">
               Subjects
             </span>
-            <nav className="space-y-1">
+            <nav className="space-y-1.5">
               {technologies.map((tech) => {
                 const isActive = tech.id === activeTechId;
                 const stats = getTechStats(tech.id);
                 const percent = stats.total > 0 ? Math.round((stats.mastered / stats.total) * 100) : 0;
+                const isReady = percent >= 80;
 
                 return (
                   <div key={tech.id}>
@@ -114,34 +153,35 @@ export function Sidebar({
                           }
                         }
                       }}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border-l-2 ${
                         isActive
-                          ? "bg-primary/10 text-primary"
-                          : "text-foreground hover:bg-muted"
+                          ? "bg-[#1a2332] text-[#f1f5f9] border-[#22c55e]"
+                          : "text-[#475569] border-transparent hover:text-[#94a3b8]"
                       }`}
                     >
-                      <span className="truncate">{tech.name}</span>
-                      <span className="flex items-center space-x-1.5 text-xs text-muted-foreground ml-2">
-                        <span>
-                          {stats.mastered}/{stats.total}
-                        </span>
-                        {percent > 0 && (
+                      <div className="flex items-center space-x-2 truncate">
+                        <span className="truncate font-semibold">{tech.name}</span>
+                        {isReady && (
                           <span
-                            className={`px-1.5 py-0.5 rounded-sm text-[10px] font-bold ${
-                              percent === 100
-                                ? "bg-emerald-500/10 text-emerald-500"
-                                : "bg-primary/10 text-primary"
-                            }`}
+                            className="text-[9px] font-mono font-bold text-[#22c55e] bg-transparent border border-[#22c55e] rounded px-1.5 py-0.5"
+                            title="Ready to Interview"
                           >
-                            {percent}%
+                            exit 0
                           </span>
                         )}
-                      </span>
+                      </div>
+
+                      {/* Circular Progress Ring */}
+                      <MasteryRing
+                        total={stats.total}
+                        mastered={stats.mastered}
+                        size={28}
+                      />
                     </button>
 
-                    {/* Nested Topics (Active Tech Only) */}
-                    {isActive && activeTech && (
-                      <div className="mt-1.5 ml-3 pl-2.5 border-l border-border/80 space-y-1">
+                    {/* Sub-Topics Accordion (only for active tech) */}
+                    {isActive && activeTech && !isSavedActive && (
+                      <div className="mt-1 ml-3 pl-2.5 border-l border-slate-800 space-y-0.5">
                         {activeTech.categories.map((cat) => {
                           const isCatActive = cat.id === activeCategoryId;
                           const catStats = getCatStats(cat);
@@ -154,18 +194,18 @@ export function Sidebar({
                                 if (cat.questions.length > 0) {
                                   setActiveQuestionId(cat.questions[0].id);
                                 }
-                                onClose(); // Close on mobile
+                                onClose();
                               }}
-                              className={`w-full flex items-center justify-between py-1.5 px-2 rounded-md text-xs transition-colors ${
+                              className={`w-full flex items-center justify-between py-1.5 px-2 rounded-md text-xs transition-colors cursor-pointer border-l-2 ${
                                 isCatActive
-                                  ? "text-primary font-semibold"
-                                  : "text-muted-foreground hover:text-foreground"
+                                  ? "bg-[#1a2332] text-[#f1f5f9] border-[#22c55e]"
+                                  : "text-[#475569] border-transparent hover:text-[#94a3b8]"
                               }`}
                             >
-                              <span className="truncate text-left max-w-[150px]">
+                              <span className="truncate text-left max-w-[150px] font-mono">
                                 {cat.title}
                               </span>
-                              <span className="text-[10px] text-muted-foreground/80 font-mono ml-2 shrink-0">
+                              <span className="text-[10px] font-bold font-mono ml-2 shrink-0 text-[#94a3b8]">
                                 {catStats.mastered}/{catStats.total}
                               </span>
                             </button>
@@ -180,19 +220,19 @@ export function Sidebar({
           </div>
         </div>
 
-        {/* Sidebar Footer / Legend */}
-        <div className="p-4 border-t border-border bg-muted/30 text-xs text-muted-foreground space-y-2">
+        {/* Sidebar Footer */}
+        <div className="p-4 border-t border-border bg-[#1a2332] text-xs text-[#94a3b8] space-y-2 select-none">
           <div className="flex items-center space-x-2">
-            <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Mastered</span>
+            <span className="w-2 h-2 rounded-full bg-[#22c55e]" />
+            <span className="font-mono text-[10px]">Mastered (&gt; 7 days)</span>
           </div>
           <div className="flex items-center space-x-2">
-            <Circle className="w-3.5 h-3.5 text-amber-500 fill-amber-500/15" />
-            <span>Studying</span>
+            <span className="w-2 h-2 rounded-full bg-[#2563eb]" />
+            <span className="font-mono text-[10px]">Studying (&lt; 7 days)</span>
           </div>
           <div className="flex items-center space-x-2">
-            <Circle className="w-3.5 h-3.5 text-slate-400" />
-            <span>Unseen / Unmarked</span>
+            <span className="w-2 h-2 rounded-full bg-[#475569]" />
+            <span className="font-mono text-[10px]">Unseen / New</span>
           </div>
         </div>
       </aside>
