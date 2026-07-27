@@ -1,4 +1,4 @@
-const CACHE_NAME = "exitzero-v1";
+const CACHE_NAME = "exitzero-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -23,13 +23,25 @@ self.addEventListener("install", (event) => {
 // Activate Event
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    self.clients.claim().then(() => {
-      return self.clients.matchAll().then((clients) => {
-        clients.forEach((client) => {
-          client.postMessage({ type: "CACHE_COMPLETED" });
+    Promise.all([
+      // Prune old exitzero static caches to release space
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            if (cacheName !== CACHE_NAME && cacheName.startsWith("exitzero-") && cacheName !== "exitzero-state") {
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      }),
+      self.clients.claim().then(() => {
+        return self.clients.matchAll().then((clients) => {
+          clients.forEach((client) => {
+            client.postMessage({ type: "CACHE_COMPLETED" });
+          });
         });
-      });
-    })
+      })
+    ])
   );
   // Schedule daily notification check
   scheduleNextCheck();
