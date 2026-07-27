@@ -83,6 +83,7 @@ export default function Home() {
 
   // PWA install event
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   // Capture beforeinstallprompt
   useEffect(() => {
@@ -91,6 +92,7 @@ export default function Home() {
       setDeferredPrompt(e);
     };
     window.addEventListener("beforeinstallprompt", handlePrompt);
+    setIsMobile(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent));
     return () => window.removeEventListener("beforeinstallprompt", handlePrompt);
   }, []);
 
@@ -334,14 +336,18 @@ export default function Home() {
   };
 
   const handlePWAInstall = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === "accepted") {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === "accepted") {
+        dismissInstallPrompt();
+        addToast("✓ ExitZero installed successfully", 3);
+      }
+      setDeferredPrompt(null);
+    } else {
+      addToast("To install ExitZero: Tap the Share button and select 'Add to Home Screen' 📲", 5);
       dismissInstallPrompt();
-      addToast("✓ ExitZero installed successfully", 3);
     }
-    setDeferredPrompt(null);
   };
 
   const handleRequestNotifPermission = async () => {
@@ -378,10 +384,10 @@ export default function Home() {
 
   // Standalone mode check
   const isStandalone = typeof window !== "undefined" && window.matchMedia("(display-mode: standalone)").matches;
-  const showInstallBanner = sessionCount >= 3 && deferredPrompt && !installDismissed && !isStandalone;
+  const showInstallBanner = isMobile && !installDismissed && !isStandalone;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#111827] text-[#f1f5f9]">
+    <div className="flex h-screen overflow-hidden bg-background text-foreground">
       {/* Sidebar Navigation */}
       <Sidebar
         activeTechId={isStudyingSaved ? "saved_study" : activeTechId}
@@ -505,7 +511,7 @@ export default function Home() {
       {toasts.length > 0 && (
         <div
           key={toasts[0].id}
-          className="fixed bottom-4 right-4 z-[9999] bg-[#1a2332] text-[#22c55e] border-l-3 border-[#22c55e] rounded-lg px-4 py-3 shadow-2xl font-mono text-xs font-bold animate-in slide-in-from-right-10 duration-300 select-none flex items-center space-x-2"
+          className="fixed bottom-4 right-4 z-[9999] bg-card text-[#22c55e] border border-border border-l-3 border-l-[#22c55e] rounded-lg px-4 py-3 shadow-2xl font-mono text-xs font-bold animate-in slide-in-from-right-10 duration-300 select-none flex items-center space-x-2"
         >
           <span>{toasts[0].message}</span>
         </div>

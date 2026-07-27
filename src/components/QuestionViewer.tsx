@@ -168,12 +168,12 @@ export function QuestionViewer({
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 max-w-4xl mx-auto w-full px-4 py-4 md:py-6 md:px-8 overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 max-w-4xl mx-auto w-full px-4 py-4 md:py-6 md:px-8 overflow-hidden bg-background">
       {/* 1. Question Card (Fixed at the top) */}
-      <div className="bg-[#1a2332] border border-border/80 rounded-xl overflow-hidden shadow-lg relative flex flex-col shrink-0 mb-4">
+      <div className="bg-card border border-border rounded-xl overflow-hidden shadow-lg relative flex flex-col shrink-0 mb-4">
         {/* Timer Progress Bar */}
         {timerMode && (
-          <div className="w-full h-[3px] bg-slate-800 absolute top-0 left-0 right-0 z-10">
+          <div className="w-full h-[3px] bg-muted absolute top-0 left-0 right-0 z-10">
             <div
               className={`h-full ${timerColor} transition-all duration-1000 ease-linear`}
               style={{ width: `${timerPercent}%` }}
@@ -184,7 +184,7 @@ export function QuestionViewer({
         <div className="p-5 md:p-6 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 flex-wrap gap-y-1.5">
-              <span className="text-xs font-mono text-[#94a3b8] uppercase tracking-widest font-semibold">
+              <span className="text-xs font-mono text-muted-foreground uppercase tracking-widest font-semibold">
                 Question {question.questionNumber}
               </span>
               <span
@@ -225,7 +225,7 @@ export function QuestionViewer({
                 className={`p-2 rounded-lg border transition-all cursor-pointer ${
                   isFavorite
                     ? "border-rose-500/20 bg-rose-500/10 text-[#ef4444]"
-                    : "border-slate-800 hover:bg-slate-800 text-[#94a3b8] hover:text-white"
+                    : "border-border hover:bg-muted text-muted-foreground hover:text-foreground"
                 } ${animateHeart ? "scale-130" : "scale-100"} duration-200`}
                 title={isFavorite ? "Remove Bookmark" : "Save Bookmark"}
               >
@@ -235,18 +235,18 @@ export function QuestionViewer({
           </div>
 
           {/* Question Title */}
-          <h2 className="text-base md:text-lg lg:text-xl font-bold text-[#f1f5f9] leading-snug">
+          <h2 className="text-base md:text-lg lg:text-xl font-bold text-foreground leading-snug">
             {question.question}
           </h2>
         </div>
       </div>
 
       {/* 2. Scrollable Answer Details Area */}
-      <div className="flex-1 overflow-y-auto space-y-4 pr-1 min-h-0">
+      <div className="flex-1 overflow-y-auto space-y-4 pr-1 min-h-0 bg-background">
         {/* Reveal Answer Button */}
         <button
           onClick={() => setShowAnswer(!showAnswer)}
-          className={`w-full py-3.5 rounded-xl font-bold text-sm tracking-wide border flex items-center justify-center space-x-2 transition-all cursor-pointer bg-[#1a2332] hover:bg-slate-800 text-[#f1f5f9] ${
+          className={`w-full py-3.5 rounded-xl font-bold text-sm tracking-wide border flex items-center justify-center space-x-2 transition-all cursor-pointer bg-card hover:bg-muted text-foreground ${
             showAnswer
               ? "border-[#22c55e]"
               : "border-[#2563eb]"
@@ -268,21 +268,21 @@ export function QuestionViewer({
         {showAnswer && (
           <div className="space-y-4 pb-4 animate-in fade-in slide-in-from-top-4 duration-300">
             {/* Answer Explanation */}
-            <div className="bg-[#1a2332] border border-border/80 rounded-xl p-5 md:p-6 shadow-xs space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-primary">
+            <div className="bg-card border border-border rounded-xl p-5 md:p-6 shadow-xs space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#2563eb] font-mono">
                 Answer Explanation
               </h3>
-              <p className="text-[#f1f5f9] leading-relaxed text-sm md:text-base whitespace-pre-wrap">
+              <p className="text-foreground leading-relaxed text-sm md:text-base whitespace-pre-wrap">
                 {question.answer}
               </p>
 
               {/* Key Points */}
               {question.keyPoints && question.keyPoints.length > 0 && (
-                <div className="pt-4 border-t border-slate-800">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#94a3b8] mb-2.5">
+                <div className="pt-4 border-t border-border">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2.5 font-mono">
                     Key Points
                   </h4>
-                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-[#f1f5f9]">
+                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-foreground">
                     {question.keyPoints.map((pt, i) => (
                       <li key={i} className="flex items-start space-x-2">
                         <span className="text-[#2563eb] mt-1 shrink-0">•</span>
@@ -297,7 +297,7 @@ export function QuestionViewer({
             {/* Code Blocks / Configurations */}
             {question.codeBlocks && question.codeBlocks.length > 0 && (
               <div className="space-y-2.5">
-                <h3 className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] px-1">
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-1 font-mono">
                   Commands & Configurations
                 </h3>
                 <div className="space-y-2.5">
@@ -306,13 +306,13 @@ export function QuestionViewer({
                     return (
                       <div
                         key={idx}
-                        className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-lg"
+                        className="bg-card border border-border rounded-xl overflow-hidden shadow-lg"
                       >
-                        <div className="flex items-center justify-between px-4 py-2 border-b border-slate-800 bg-[#111827] text-slate-400 text-xs font-mono select-none">
+                        <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/30 text-muted-foreground text-xs font-mono select-none">
                           <span>{block.filename || block.language || "terminal"}</span>
                           <button
                             onClick={() => copyToClipboard(block.code, blockId)}
-                            className="flex items-center space-x-1.5 hover:text-slate-200 transition-colors cursor-pointer"
+                            className="flex items-center space-x-1.5 hover:text-foreground transition-colors cursor-pointer"
                           >
                             {copiedId === blockId ? (
                               <>
@@ -327,9 +327,9 @@ export function QuestionViewer({
                             )}
                           </button>
                         </div>
-                        <pre className="p-4 overflow-x-auto text-xs md:text-sm font-mono text-slate-200 leading-relaxed bg-[#111827]/40">
-                        <code className="animate-cursor-blink">{block.code}</code>
-                      </pre>
+                        <pre className="p-4 overflow-x-auto text-xs md:text-sm font-mono text-foreground leading-relaxed bg-background/50">
+                          <code className="animate-cursor-blink">{block.code}</code>
+                        </pre>
                       </div>
                     );
                   })}
@@ -411,7 +411,7 @@ export function QuestionViewer({
                 {question.tags.map((tag, i) => (
                   <span
                     key={i}
-                    className="bg-slate-800 text-[#94a3b8] border border-border/40 text-[10px] font-semibold px-2.5 py-0.5 rounded-full"
+                    className="bg-card text-muted-foreground border border-border text-[10px] font-semibold px-2.5 py-0.5 rounded-full font-mono"
                   >
                     #{tag}
                   </span>
@@ -420,8 +420,8 @@ export function QuestionViewer({
             )}
 
             {/* SRS Score Options (Moved to the very end of answer details) */}
-            <div className="bg-[#1a2332] border border-border/80 rounded-xl p-5 shadow-xs space-y-3 mt-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#94a3b8] block">
+            <div className="bg-card border border-border rounded-xl p-5 shadow-xs space-y-3 mt-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block font-mono">
                 Record Review Difficulty
               </span>
               <div className="flex flex-col sm:flex-row gap-2">
@@ -459,13 +459,13 @@ export function QuestionViewer({
       </div>
 
       {/* 3. Navigation Footer (Fixed at the bottom) */}
-      <div className="pt-4 border-t border-slate-800 bg-[#111827] shrink-0 mt-4 grid grid-cols-3 gap-2 sm:gap-4 w-full">
+      <div className="pt-4 border-t border-border bg-background shrink-0 mt-4 grid grid-cols-3 gap-2 sm:gap-4 w-full">
         {/* Column 1 */}
         <div className="flex justify-start">
           {!timerMode ? (
             <button
               onClick={onPrev}
-              className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-3 py-2 border border-slate-800 rounded-lg text-xs sm:text-sm text-[#f1f5f9] hover:bg-slate-800 font-semibold transition-all cursor-pointer"
+              className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-3 py-2 border border-border rounded-lg text-xs sm:text-sm text-foreground hover:bg-muted font-semibold transition-all cursor-pointer"
             >
               <ChevronLeft className="w-3.5 h-3.5 shrink-0" />
               <span className="hidden xs:inline">Previous</span>
@@ -480,7 +480,7 @@ export function QuestionViewer({
         <div className="flex justify-center">
           <button
             onClick={onRandom}
-            className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-3 py-2 border border-slate-800 rounded-lg text-xs sm:text-sm text-[#f1f5f9] hover:bg-slate-800 font-semibold transition-all cursor-pointer"
+            className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-3 py-2 border border-border rounded-lg text-xs sm:text-sm text-foreground hover:bg-muted font-semibold transition-all cursor-pointer"
             title="Pick a Random Question"
           >
             <Shuffle className="w-3.5 h-3.5 shrink-0" />
@@ -492,7 +492,7 @@ export function QuestionViewer({
         <div className="flex justify-end">
           <button
             onClick={onNext}
-            className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-3 py-2 border border-slate-800 rounded-lg text-xs sm:text-sm text-[#f1f5f9] hover:bg-slate-800 font-semibold transition-all cursor-pointer"
+            className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-3 py-2 border border-border rounded-lg text-xs sm:text-sm text-foreground hover:bg-muted font-semibold transition-all cursor-pointer"
           >
             <span className="hidden xs:inline">Next Question</span>
             <span className="xs:hidden">Next</span>

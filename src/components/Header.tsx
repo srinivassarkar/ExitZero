@@ -73,12 +73,12 @@ export function Header({
   };
 
   return (
-    <header className="h-14 border-b border-border bg-[#1a2332] flex items-center justify-between px-4 z-30 relative shrink-0">
+    <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 z-30 relative shrink-0">
       {/* Subject / Category Info */}
       <div className="flex items-center space-x-3 min-w-0">
         <button
           onClick={onMenuToggle}
-          className="p-1.5 rounded-md text-[#94a3b8] hover:text-white hover:bg-slate-800 md:hidden cursor-pointer"
+          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted md:hidden cursor-pointer"
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -86,7 +86,7 @@ export function Header({
           <span className="text-[10px] uppercase font-bold tracking-wider text-[#22c55e] select-none">
             {activeTechName}
           </span>
-          <span className="text-xs sm:text-sm font-semibold text-[#f1f5f9] truncate select-none max-w-[100px] min-[400px]:max-w-[140px] min-[500px]:max-w-[200px] sm:max-w-xs md:max-w-md block">
+          <span className="text-xs sm:text-sm font-semibold text-foreground truncate select-none max-w-[100px] min-[400px]:max-w-[140px] min-[500px]:max-w-[200px] sm:max-w-xs md:max-w-md block">
             {activeCategoryName}
           </span>
         </div>
@@ -97,13 +97,13 @@ export function Header({
         {/* Streak Counter */}
         {streakCount > 0 && (
           <div
-            className="flex items-center space-x-1 px-2 py-1 bg-slate-800/80 rounded-lg border border-border/40 select-none group relative"
+            className="flex items-center space-x-1 px-2 py-1 bg-muted rounded-lg border border-border select-none group relative"
             title={`Longest streak: ${longestStreak} days`}
           >
             <span className={`text-base ${streakCount >= 3 ? "animate-streak-pulse origin-bottom" : ""}`}>
               🔥
             </span>
-            <span className="font-mono text-xs font-bold text-[#f1f5f9]">
+            <span className="font-mono text-xs font-bold text-foreground">
               {streakCount}
               <span className="hidden sm:inline"> day streak</span>
             </span>
@@ -113,11 +113,11 @@ export function Header({
         {/* Search */}
         <button
           onClick={onSearchOpen}
-          className="p-1.5 md:p-2 rounded-lg text-[#94a3b8] hover:text-[#f1f5f9] hover:bg-slate-800 flex items-center space-x-1.5 text-xs font-semibold border border-border/40 hover:border-border transition-all cursor-pointer"
+          className="p-1.5 md:p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted flex items-center space-x-1.5 text-xs font-semibold border border-border transition-all cursor-pointer"
         >
           <Search className="w-4 h-4" />
           <span className="hidden sm:inline">Search</span>
-          <kbd className="hidden sm:inline-flex px-1 bg-[#1a2332] border border-[#22c55e] text-[#22c55e] rounded text-[9px] font-mono select-none">
+          <kbd className="hidden sm:inline-flex px-1 bg-card border border-[#22c55e] text-[#22c55e] rounded text-[9px] font-mono select-none">
             /
           </kbd>
         </button>
@@ -129,7 +129,7 @@ export function Header({
             className={`p-1.5 md:p-2 rounded-lg flex items-center space-x-1.5 text-xs font-bold transition-all border cursor-pointer ${
               timerMode
                 ? "border-[#2563eb] text-[#2563eb] bg-transparent"
-                : "border-transparent text-[#94a3b8] hover:text-[#f1f5f9] hover:bg-slate-800"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted"
             }`}
             title={timerMode ? "Deactivate Timer Mode" : "Activate Timer Mode"}
           >
@@ -140,8 +140,8 @@ export function Header({
           {/* Timer Settings Button */}
           <button
             onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-            className={`p-1.5 md:p-2 rounded-lg hover:text-[#f1f5f9] hover:bg-slate-800 transition-colors ml-0.5 cursor-pointer ${
-              isSettingsOpen ? "text-[#f1f5f9]" : "text-[#94a3b8]"
+            className={`p-1.5 md:p-2 rounded-lg hover:text-foreground hover:bg-muted transition-colors ml-0.5 cursor-pointer ${
+              isSettingsOpen ? "text-foreground" : "text-muted-foreground"
             }`}
             title="Timer Settings"
           >
@@ -150,9 +150,9 @@ export function Header({
 
           {/* Settings Popover */}
           {isSettingsOpen && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-[#1a2332] border border-border rounded-xl p-4 shadow-2xl space-y-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="absolute right-0 top-full mt-2 w-56 bg-card border border-border rounded-xl p-4 shadow-2xl space-y-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
               <div className="space-y-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#475569] block font-mono">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#475569] dark:text-[#94a3b8] block font-mono">
                   Duration
                 </span>
                 <div className="grid grid-cols-2 gap-1.5">
@@ -162,7 +162,7 @@ export function Header({
                       className={`flex items-center justify-center p-1.5 rounded-lg text-xs font-mono font-bold border cursor-pointer transition-all ${
                         timerDuration === sec
                           ? "border-[#2563eb] text-[#2563eb] bg-transparent"
-                          : "border-slate-800 text-[#475569] hover:text-[#94a3b8]"
+                          : "border-border text-muted-foreground hover:text-foreground"
                       }`}
                     >
                       <input
@@ -179,8 +179,8 @@ export function Header({
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-2 border-t border-slate-800">
-                <span className="text-xs font-semibold text-[#f1f5f9]">
+              <div className="flex items-center justify-between pt-2 border-t border-border">
+                <span className="text-xs font-semibold text-foreground">
                   Auto-advance
                 </span>
                 <button
@@ -203,7 +203,7 @@ export function Header({
         {/* Theme Toggle */}
         <button
           onClick={toggleTheme}
-          className="p-1.5 md:p-2 rounded-lg text-[#94a3b8] hover:text-[#f1f5f9] hover:bg-slate-800 transition-colors border border-border/40 cursor-pointer"
+          className="p-1.5 md:p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors border border-border cursor-pointer"
           title="Toggle Theme"
         >
           {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
