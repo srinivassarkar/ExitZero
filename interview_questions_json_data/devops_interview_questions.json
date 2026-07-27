@@ -1,0 +1,3772 @@
+{
+  "title": "Extended DevOps Interview Prep: 145 Questions",
+  "technology": "DevOps",
+  "version": "1.0",
+  "totalQuestions": 145,
+  "categories": [
+    {
+      "id": 1,
+      "title": "GitHub Actions & CI/CD Core",
+      "order": 1,
+      "questions": [
+        {
+          "id": 1,
+          "questionNumber": 1,
+          "difficulty": "Easy",
+          "question": "What is GitHub Actions and how does it differ from Jenkins?",
+          "answer": "GitHub Actions: native CI/CD in GitHub, YAML-based, event-driven, hosted runners managed by GitHub, marketplace for reusable actions. Jenkins: self-hosted, plugin-heavy, more flexible but more ops overhead. Actions: better for GitHub-native teams, no infra to manage, tighter repo integration. Jenkins: better for complex enterprise pipelines or non-GitHub repos.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "GitHub Actions",
+            "Jenkins",
+            "CI/CD Basics"
+          ]
+        },
+        {
+          "id": 2,
+          "questionNumber": 2,
+          "difficulty": "Easy",
+          "question": "What triggers can start a GitHub Actions workflow?",
+          "answer": "push, pull_request, schedule (cron), workflow_dispatch (manual), workflow_call (reusable), release, issue_comment, repository_dispatch (external webhook), pull_request_target. Most common: push to main + pull_request for CI. schedule for nightly builds. workflow_dispatch for manual deploys with inputs.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Workflows",
+            "Triggers",
+            "CI/CD"
+          ]
+        },
+        {
+          "id": 3,
+          "questionNumber": 3,
+          "difficulty": "Easy",
+          "question": "What is the difference between a job and a step?",
+          "answer": "Job: runs on a runner (VM/container), jobs run in parallel by default. Step: individual task within a job — runs sequentially. Steps share the same runner filesystem and environment. Jobs don't share filesystem (use artifacts to pass data). needs: keyword makes jobs sequential.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Jobs",
+            "Steps",
+            "Execution Flow"
+          ]
+        },
+        {
+          "id": 4,
+          "questionNumber": 4,
+          "difficulty": "Hard",
+          "question": "How does OIDC with AWS work in GitHub Actions?",
+          "answer": "GitHub generates OIDC JWT token per workflow run. AWS IAM role has trust policy allowing github.com OIDC provider with repo/branch conditions. Workflow: configure the first setting, then use the second action with role-to-assume. STS validates JWT, returns temp credentials. No stored AWS secrets — rotates automatically per run.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "permissions:\n  id-token: write"
+            },
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "uses: aws-actions/configure-aws-credentials@v4\nwith:\n  role-to-assume: arn:aws:iam::1234567890:role/github-actions-role"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Use OIDC instead of storing static, long-lived AWS credentials in GitHub Secrets."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "OIDC",
+            "AWS",
+            "STS",
+            "IAM Roles",
+            "Security"
+          ]
+        },
+        {
+          "id": 5,
+          "questionNumber": 5,
+          "difficulty": "Medium",
+          "question": "What are GitHub Actions secrets and how do you use them?",
+          "answer": "Stored encrypted at repo/org/environment level. Accessed using the first expression in workflow. Never printed in logs (masked). Org secrets: shared across repos. Environment secrets: scoped to deployment environment (prod/staging) with protection rules. Never echo secrets — they may appear in error messages if passed to commands incorrectly.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "${{ secrets.MY_SECRET }}"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Never echo secrets as they may appear in error messages if passed to commands incorrectly."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Secrets",
+            "Encryption",
+            "Environment Secrets"
+          ]
+        },
+        {
+          "id": 6,
+          "questionNumber": 6,
+          "difficulty": "Medium",
+          "question": "What is the difference between github.sha and github.ref?",
+          "answer": "The first variable: full commit SHA of the triggering commit — immutable, use for image tags. The second variable: branch or tag ref (refs/heads/main) — mutable. The third variable: short name (main, v1.2.3). The fourth variable: PR source branch. Always tag Docker images with the first variable not the second — sha is immutable and traceable.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "github.sha"
+            },
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "github.ref"
+            },
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "github.ref_name"
+            },
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "github.head_ref"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Always tag Docker images with github.sha instead of github.ref for immutability and traceability."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Variables",
+            "git metadata",
+            "Docker Tagging"
+          ]
+        },
+        {
+          "id": 7,
+          "questionNumber": 7,
+          "difficulty": "Hard",
+          "question": "How do you cache dependencies in GitHub Actions?",
+          "answer": "Use the first action: key based on hash of dependency file. Example: the second configuration. The third option defines fallback patterns. Cache hit: restores and skips install. Cache miss: install runs, then cache saved. Separate caches per OS and dependency file. Cache size limit: 10GB per repo.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "uses: actions/cache@v4"
+            },
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}"
+            },
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "restore-keys: |\n  ${{ runner.os }}-npm-"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Caching",
+            "Actions Cache",
+            "Build Speed"
+          ]
+        },
+        {
+          "id": 8,
+          "questionNumber": 8,
+          "difficulty": "Medium",
+          "question": "What is a reusable workflow?",
+          "answer": "The first trigger makes a workflow callable from other workflows. Inputs and secrets declared explicitly. Called using the second or third format. Promotes DRY — shared deploy logic across repos. Caller passes inputs and secrets. Nested reusable workflows supported (up to 4 levels).",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "on: workflow_call"
+            },
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "uses: ./.github/workflows/deploy.yml"
+            },
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "uses: org/repo/.github/workflows/deploy.yml@main"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Use reusable workflows to promote DRY deploy logic across multiple repositories."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Reusable Workflows",
+            "DRY",
+            "Workflow Templates"
+          ]
+        },
+        {
+          "id": 9,
+          "questionNumber": 9,
+          "difficulty": "Medium",
+          "question": "What are composite actions vs reusable workflows?",
+          "answer": "Composite action: groups multiple steps into one action, runs in caller's job context, defined in action.yml. Reusable workflow: separate job with its own runner, called with uses:. Composite: for step-level reuse within a job. Reusable workflow: for job-level reuse across repos. Composite actions can't use secrets directly — must pass as inputs.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Composite actions cannot access secrets directly; secrets must be passed explicitly as inputs."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Composite Actions",
+            "Reusable Workflows",
+            "Actions Design"
+          ]
+        },
+        {
+          "id": 10,
+          "questionNumber": 10,
+          "difficulty": "Medium",
+          "question": "How do you implement environment protection rules?",
+          "answer": "Settings → Environments → create prod environment. Protection rules: required reviewers (manual approval gate), wait timer, deployment branch restrictions (only main). Workflow: environment: prod on deploy job triggers protection rules. Secrets scoped to environment. Approve/reject in GitHub UI or API. Prevents accidental prod deploys.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Configure environment protection rules with required reviewers for production deployments to prevent accidental runs."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Environments",
+            "Protection Rules",
+            "Manual Approvals",
+            "CI/CD Gates"
+          ]
+        },
+        {
+          "id": 11,
+          "questionNumber": 11,
+          "difficulty": "Medium",
+          "question": "How do you run jobs in parallel vs sequentially?",
+          "answer": "Parallel: default — all jobs start simultaneously. Sequential: needs: [job1, job2] makes job wait for dependencies. Fan-out/fan-in: multiple parallel jobs with a final aggregation job using needs: [job1, job2, job3]. Matrix strategy: parallel jobs per matrix combination. Parallelism speeds up CI — use it for independent test suites.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "needs: [job1, job2]"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Parallel Execution",
+            "Sequential Jobs",
+            "Job Dependencies"
+          ]
+        },
+        {
+          "id": 12,
+          "questionNumber": 12,
+          "difficulty": "Medium",
+          "question": "What is a matrix strategy?",
+          "answer": "Runs a job multiple times with different variable combinations. matrix: os: [ubuntu, windows], node: [18, 20] → 4 parallel jobs. fail-fast: false: continue other matrix jobs if one fails. include/exclude: add or remove specific combinations. Use for: cross-platform testing, multiple runtime versions, multi-region deploys.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "strategy:\n  matrix:\n    os: [ubuntu-latest, windows-latest]\n    node: [18, 20]"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Matrix Strategy",
+            "Multi-version Testing",
+            "Job Parallelism"
+          ]
+        },
+        {
+          "id": 13,
+          "questionNumber": 13,
+          "difficulty": "Medium",
+          "question": "How do you pass data between jobs?",
+          "answer": "Artifacts: actions/upload-artifact in job1, actions/download-artifact in job2 — for files. Outputs: job outputs declared with outputs: and set via echo 'key=value' >> $GITHUB_OUTPUT — for strings. Environment files: GITHUB_ENV for env vars within a job. jobs.<job>.outputs for cross-job string passing.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "echo \"my_output=value\" >> $GITHUB_OUTPUT"
+            },
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "echo \"ENV_VAR=value\" >> $GITHUB_ENV"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Outputs",
+            "Artifacts",
+            "Data Sharing",
+            "Job Outputs"
+          ]
+        },
+        {
+          "id": 14,
+          "questionNumber": 14,
+          "difficulty": "Medium",
+          "question": "What is the GITHUB_TOKEN and what can it do?",
+          "answer": "Auto-generated token per workflow run with permissions scoped to the repo. Default permissions configurable (read/write). Use for: pushing to repo, creating PRs, posting comments, creating releases. permissions: block in workflow restricts further. Never use personal access token when GITHUB_TOKEN suffices — principle of least privilege.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Never use a personal access token (PAT) when the auto-generated GITHUB_TOKEN suffices."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "GITHUB_TOKEN",
+            "Permissions",
+            "Access Control"
+          ]
+        },
+        {
+          "id": 15,
+          "questionNumber": 15,
+          "difficulty": "Medium",
+          "question": "How do you skip CI for a commit?",
+          "answer": "Add [skip ci], [ci skip], [no ci], or [skip actions] to commit message. Or: paths-ignore filter in workflow trigger — don't run CI for docs-only changes. on: push: paths: ['src/**'] — only run when source changes. Reduces unnecessary CI runs and compute costs on documentation or config-only commits.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "on:\n  push:\n    paths-ignore:\n      - 'README.md'\n      - 'docs/**'"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Skip CI",
+            "paths-ignore",
+            "Optimization"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "CI/CD Patterns & Security",
+      "order": 2,
+      "questions": [
+        {
+          "id": 16,
+          "questionNumber": 16,
+          "difficulty": "Medium",
+          "question": "What is a GitOps CI/CD pattern?",
+          "answer": "Git is the single source of truth. CI: builds and tests code, pushes image to registry, updates image tag in Git (separate config repo). CD: ArgoCD/Flux watches Git config repo, syncs cluster to match. No direct kubectl in CI pipeline. Rollback = git revert. Audit trail = git history. Separation of concerns: CI builds, Git holds state, CD deploys.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Do not execute direct kubectl commands inside the CI pipeline; let the GitOps controller handle deployments."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "GitOps",
+            "ArgoCD",
+            "Flux",
+            "Separation of Concerns"
+          ]
+        },
+        {
+          "id": 17,
+          "questionNumber": 17,
+          "difficulty": "Medium",
+          "question": "How do you implement semantic versioning in a CI pipeline?",
+          "answer": "Trigger on git tags (v*.*.*). Extract version: ${GITHUB_REF#refs/tags/v}. Tag image with version + latest. Generate changelog from conventional commits. Create GitHub release with release notes. Tools: semantic-release automates version bumping from commit messages. Convention: feat: = minor bump, fix: = patch, BREAKING CHANGE: = major.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "VERSION=${GITHUB_REF#refs/tags/v}"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Use conventional commits to automate semantic version bumping and changelog generation."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Semantic Versioning",
+            "Git Tags",
+            "Conventional Commits",
+            "Releases"
+          ]
+        },
+        {
+          "id": 18,
+          "questionNumber": 18,
+          "difficulty": "Medium",
+          "question": "What is a deployment pipeline vs a delivery pipeline?",
+          "answer": "Delivery pipeline: gets code to production-ready state (build, test, scan, package). Deployment pipeline: actually deploys to environments (dev → staging → prod). Continuous delivery: automated to staging, manual approval for prod. Continuous deployment: fully automated including prod. Most companies: continuous delivery — automated to staging, human gate for prod.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Delivery vs Deployment",
+            "Continuous Delivery",
+            "Continuous Deployment"
+          ]
+        },
+        {
+          "id": 19,
+          "questionNumber": 19,
+          "difficulty": "Hard",
+          "question": "How do you implement blue/green deployment in a GitHub Actions pipeline?",
+          "answer": "Build image → push to ECR. Update staging (blue) → run smoke tests. If pass: update Route53/ALB weights to shift traffic to green. Monitor error rate → if clean: remove blue. If fail: revert weights to blue. ArgoCD Rollouts: annotate Ingress with canary weights, Actions triggers rollout, monitors analysis template, promotes or aborts.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Blue/Green Deployment",
+            "ArgoCD Rollouts",
+            "Route53",
+            "ALB Weights"
+          ]
+        },
+        {
+          "id": 20,
+          "questionNumber": 20,
+          "difficulty": "Hard",
+          "question": "What is a canary deployment and how does it differ from blue/green?",
+          "answer": "Canary: gradual traffic shift (5% → 25% → 100%) with monitoring between steps. Blue/green: full switch with instant rollback. Canary: lower risk, catches issues with small blast radius, slower. Blue/green: faster cutover, requires 2x infrastructure. Use canary for: high-traffic services where even 5% error matters. Blue/green for: fast rollback requirement, database migrations.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Canary Deployment",
+            "Blue/Green",
+            "Traffic Shifting",
+            "Infrastructure Costs"
+          ]
+        },
+        {
+          "id": 21,
+          "questionNumber": 21,
+          "difficulty": "Hard",
+          "question": "How do you handle database migrations in a CI/CD pipeline?",
+          "answer": "Run migrations before deploying new app version. Migration job: runs as K8s Job or CI step, connects to DB, applies migrations. Must be: backwards compatible (old app + new schema must work), idempotent (safe to run twice), reversible (rollback migration if deploy fails). Never auto-migrate in app startup — separate migration step with explicit approval.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Ensure migrations are backwards-compatible and idempotent."
+          ],
+          "warnings": [
+            "Never execute auto-migrations directly inside application startup scripts; decouple migrations into a separate step with explicit approvals."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Database Migrations",
+            "Idempotency",
+            "Backwards Compatibility"
+          ]
+        },
+        {
+          "id": 22,
+          "questionNumber": 22,
+          "difficulty": "Medium",
+          "question": "What is shift-left security in CI/CD?",
+          "answer": "Move security testing earlier in pipeline (left = earlier in dev lifecycle). Implement: pre-commit hooks (secrets scanning, linting), PR checks (SAST with Semgrep), CI (dependency scanning, container scanning), staging (DAST). Cheaper to fix early — a vulnerability found in pre-commit costs minutes, in production costs days. Developer owns security, not separate team.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Shift-left Security",
+            "SAST",
+            "DAST",
+            "Checkov",
+            "Semgrep"
+          ]
+        },
+        {
+          "id": 23,
+          "questionNumber": 23,
+          "difficulty": "Hard",
+          "question": "How do you prevent secrets from leaking in CI logs?",
+          "answer": "GitHub masks registered secrets automatically. Never echo $SECRET — shell expansion can leak. Use set +x before secret handling in bash. Pass secrets via env vars not CLI args (args visible in ps). Use --password-stdin for docker login. Scan with truffleHog/git-secrets in pre-commit. Audit workflow logs regularly. Rotate any secret that may be logged.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "echo \"$SECRET_PASSWORD\" | docker login -u \"$USER\" --password-stdin"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "set +x"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Never echo $SECRET directly; shell expansion can leak it in outputs.",
+            "Do not pass secrets via CLI arguments, as they are visible in the process table (ps)."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Secrets Leak",
+            "Security Logging",
+            "truffleHog",
+            "docker login"
+          ]
+        },
+        {
+          "id": 24,
+          "questionNumber": 24,
+          "difficulty": "Medium",
+          "question": "What is a pull request check vs a status check?",
+          "answer": "Status check: external service reports pass/fail on a commit via GitHub API (CI result, code review tool). Required status checks: branch protection rule — PR can't merge until all required checks pass. PR check: GitHub Actions job triggered by pull_request event. Combine: require CI pass + code review approval + no merge conflicts before merge.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Pull Request",
+            "Status Checks",
+            "Branch Protection"
+          ]
+        },
+        {
+          "id": 25,
+          "questionNumber": 25,
+          "difficulty": "Medium",
+          "question": "How do you implement approval gates in GitHub Actions?",
+          "answer": "Environment protection rules: required reviewers must approve before environment deploy job runs. workflow_dispatch with manual trigger for prod deploys. Issue ops: comment /deploy triggers workflow_dispatch via repository_dispatch. Approval recorded in GitHub audit log. For regulated environments: require 2+ reviewers with specific team membership.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "For regulated environments, configure a minimum of 2+ reviewers with specific team memberships for production approvals."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Approval Gates",
+            "Environment Protection",
+            "Manual Approvals"
+          ]
+        },
+        {
+          "id": 26,
+          "questionNumber": 26,
+          "difficulty": "Medium",
+          "question": "What is the difference between self-hosted and GitHub-hosted runners?",
+          "answer": "GitHub-hosted: managed by GitHub, fresh VM per job, Ubuntu/Windows/macOS, limited customisation, usage-based billing. Self-hosted: your infrastructure, persistent (or ephemeral with auto-scaling), custom software pre-installed, VPC access for private resources, no egress cost. Use self-hosted for: large builds, private network access, custom hardware (GPU), cost optimisation at scale.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Runners",
+            "Self-hosted Runners",
+            "GitHub-hosted Runners",
+            "Cost Control"
+          ]
+        },
+        {
+          "id": 27,
+          "questionNumber": 27,
+          "difficulty": "Hard",
+          "question": "How do you run GitHub Actions on EKS (self-hosted runners)?",
+          "answer": "Actions Runner Controller (ARC): Kubernetes operator managing ephemeral runner pods. RunnerDeployment or ScaleSet: defines runner pods. Auto-scales based on pending jobs. Pod gets OIDC token for AWS access. Ephemeral: fresh pod per job — clean state. Benefits: EKS IAM integration, VPC access, custom images, cost control with Spot nodes for runners.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Actions Runner Controller",
+            "EKS",
+            "Self-hosted Runners",
+            "ARC"
+          ]
+        },
+        {
+          "id": 28,
+          "questionNumber": 28,
+          "difficulty": "Hard",
+          "question": "What is artifact attestation in GitHub Actions?",
+          "answer": "Cryptographic proof linking a build artifact to a specific workflow run. actions/attest-build-provenance generates SLSA provenance attestation. Signed with Sigstore/Fulcio. Consumers verify: this image was built from this commit by this workflow. Protects supply chain — proves artifact wasn't tampered with after build. SLSA level 2+ compliance.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "uses: actions/attest-build-provenance@v1"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Artifact Attestation",
+            "SLSA",
+            "Sigstore",
+            "Supply Chain Security"
+          ]
+        },
+        {
+          "id": 29,
+          "questionNumber": 29,
+          "difficulty": "Medium",
+          "question": "How do you test a GitHub Actions workflow without pushing?",
+          "answer": "act tool: runs workflows locally using Docker. Limitations: some GitHub context not available. For OIDC: mock the token endpoint. Test matrix strategy locally with --matrix. Use workflow_dispatch for manual testing without triggering on push. Create a test branch with branch-specific workflow triggers. Always test in non-main branch first.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "act --matrix"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Always test workflows on a non-main test branch before merging."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Workflow Testing",
+            "act tool",
+            "Local Validation"
+          ]
+        },
+        {
+          "id": 30,
+          "questionNumber": 30,
+          "difficulty": "Hard",
+          "question": "What is a composite GitHub Actions workflow for Docker build + push + scan?",
+          "answer": "Step 1: checkout. Step 2: Configure AWS credentials (OIDC). Step 3: Login to ECR. Step 4: docker buildx build --cache-from --push --tag image:$SHA. Step 5: Trivy scan the pushed image. Step 6: Fail if CRITICAL CVEs found. Step 7: Update image tag in GitOps repo (separate commit). All in one reusable workflow called from app repos.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "steps:\n  - uses: actions/checkout@v4\n  - uses: aws-actions/configure-aws-credentials@v4\n  - uses: aws-actions/amazon-ecr-login@v2\n  - run: docker buildx build --cache-from=type=gha --push --tag my-image:$GITHUB_SHA .\n  - uses: aquasecurity/trivy-action@master"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Composite Actions",
+            "CI/CD Pipeline",
+            "Docker Build",
+            "Trivy Scanning"
+          ]
+        },
+        {
+          "id": 31,
+          "questionNumber": 31,
+          "difficulty": "Hard",
+          "question": "How do you implement rollback in a CD pipeline?",
+          "answer": "GitOps: git revert the image tag commit → ArgoCD auto-syncs → previous version deployed. Or: ArgoCD UI/CLI rollback to previous revision. GitHub Actions: workflow_dispatch with version input → update image tag to specified version. Automated: if smoke tests fail post-deploy → trigger rollback workflow automatically. Rollback must be faster than fixing forward — test it regularly.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Ensure rollbacks are tested regularly and are faster than fix-forward cycles."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Rollback",
+            "GitOps Rollback",
+            "ArgoCD",
+            "Automated Rollbacks"
+          ]
+        },
+        {
+          "id": 32,
+          "questionNumber": 32,
+          "difficulty": "Medium",
+          "question": "What is a release branch strategy and how does it affect CI/CD?",
+          "answer": "Trunk-based: all devs commit to main, feature flags for incomplete features, CI on every commit, CD from main only. Gitflow: main + develop + feature/release/hotfix branches — more complex, slower feedback. For DevOps: trunk-based preferred — shorter-lived branches, faster integration, simpler CI/CD. Release branches: cut from main for hotfix only.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "For DevOps teams, trunk-based development is preferred over Gitflow due to faster integration and simpler pipelines."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Branching Strategy",
+            "Trunk-based Development",
+            "Gitflow"
+          ]
+        },
+        {
+          "id": 33,
+          "questionNumber": 33,
+          "difficulty": "Hard",
+          "question": "How do you handle CI/CD for monorepos?",
+          "answer": "Detect changed packages: dorny/paths-filter or nx affected. Only run CI for changed services + their dependents. Shared library change: run CI for all dependents. nx affected --target=build: determines what to build. Docker: build only changed service images. Avoid: building and testing all 50 services when one file changed. Tools: Nx, Turborepo, Bazel for monorepo CI.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "uses: dorny/paths-filter@v3"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "nx affected --target=build"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Monorepo",
+            "Nx",
+            "Turborepo",
+            "paths-filter",
+            "CI Optimization"
+          ]
+        },
+        {
+          "id": 34,
+          "questionNumber": 34,
+          "difficulty": "Medium",
+          "question": "What is DORA metrics and how do CI/CD pipelines affect them?",
+          "answer": "Deployment Frequency: how often you deploy. Lead Time for Changes: commit to production time. Change Failure Rate: % of deployments causing incidents. Mean Time to Recovery (MTTR): time to restore service. Elite teams: multiple deploys/day, <1hr lead time, <5% failure rate, <1hr MTTR. CI/CD directly improves all four. Measure and track these — not just pipeline pass rate.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Measure and track the actual DORA metrics rather than simple pipeline pass rates."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "DORA Metrics",
+            "Deployment Frequency",
+            "MTTR",
+            "Lead Time"
+          ]
+        },
+        {
+          "id": 35,
+          "questionNumber": 35,
+          "difficulty": "Medium",
+          "question": "How do you implement dependency update automation?",
+          "answer": "Dependabot (GitHub native): auto-PRs for dependency updates — npm, pip, Docker base images, Actions versions. Renovate: more configurable, supports more ecosystems, batching updates. Configure: automerge for patch updates passing CI, review required for major. Schedule: weekly to avoid PR flood. Test: CI must catch breaking changes from updates.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Schedule dependency updates weekly to avoid PR fatigue.",
+            "Configure automerge for patch updates that pass CI successfully."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Dependency Automation",
+            "Dependabot",
+            "Renovate",
+            "Automerge"
+          ]
+        },
+        {
+          "id": 36,
+          "questionNumber": 36,
+          "difficulty": "Hard",
+          "question": "What is a software supply chain attack and how does CI/CD mitigate it?",
+          "answer": "Attack: compromise build pipeline, dependency, or base image to inject malicious code. Mitigations: pin dependencies to exact versions/digests, SBOM generation, Sigstore image signing, provenance attestation, scan dependencies (Snyk, OWASP), minimal base images, ephemeral build environments, audit third-party Actions (pin to SHA not tag), private artifact registry.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Always pin third-party GitHub Actions to exact commit SHAs instead of tags.",
+            "Generate SBOMs (Software Bill of Materials) and sign images with Cosign."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Supply Chain Security",
+            "SBOM",
+            "Image Signing",
+            "Commit Pinning"
+          ]
+        },
+        {
+          "id": 37,
+          "questionNumber": 37,
+          "difficulty": "Medium",
+          "question": "How do you implement feature flags with CI/CD?",
+          "answer": "Feature flags: deploy code to production disabled, enable per user/% without deploy. Tools: LaunchDarkly, Unleash, Flagsmith, simple env vars. CI/CD: deploy always, flags control activation. Benefits: decouple deploy from release, A/B testing, instant rollback (disable flag), trunk-based development. Risk: flag debt — clean up old flags regularly.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Feature flags introduce technical debt; ensure old flags are cleaned up regularly."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Feature Flags",
+            "LaunchDarkly",
+            "Unleash",
+            "Decoupling Deploy"
+          ]
+        },
+        {
+          "id": 38,
+          "questionNumber": 38,
+          "difficulty": "Medium",
+          "question": "What is a pipeline as code approach?",
+          "answer": "CI/CD pipeline defined in version-controlled files (.github/workflows, Jenkinsfile, .gitlab-ci.yml). Benefits: pipeline changes reviewed like code (PRs), history tracked, reproducible, testable. Anti-pattern: clicking buttons in Jenkins UI — no history, not reproducible. Every pipeline change goes through PR review. Pipeline code should be as clean as application code.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Always define pipelines in version-controlled code.",
+            "Treat pipeline configuration files with the same code review rigor as application source code."
+          ],
+          "warnings": [
+            "Avoid modifying pipeline configurations via UI buttons (e.g. Jenkins UI) as it leaves no history and isn't reproducible."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Pipeline as Code",
+            "CI/CD Architecture",
+            "Code Review"
+          ]
+        },
+        {
+          "id": 39,
+          "questionNumber": 39,
+          "difficulty": "Medium",
+          "question": "How do you handle long-running CI jobs (>30 min)?",
+          "answer": "Parallelise: split test suite across matrix jobs. Optimise: better caching, faster test framework. Timeout: set job timeout to prevent runaway jobs. Incremental: only test changed code (affected testing). Split: separate fast feedback (unit tests <5min) from slow (integration >20min). Report fast failures first. Developers shouldn't wait 30min for CI feedback.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Split testing into fast feedback paths (unit tests <5min) and slow paths (integration >20min).",
+            "Set explicit timeouts on jobs to prevent runaway build costs."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Job Optimization",
+            "CI Performance",
+            "Timeouts",
+            "Parallel Tests"
+          ]
+        },
+        {
+          "id": 40,
+          "questionNumber": 40,
+          "difficulty": "Hard",
+          "question": "Situational: Your CI pipeline deploys to prod automatically but a bad release got through — what do you change?",
+          "answer": "Add: automated smoke tests post-deploy with auto-rollback on failure. Canary deployment — 5% traffic first, monitor 10 minutes, then promote. Required staging environment with manual approval gate. Improve test coverage for the failed scenario. Post-incident: add regression test for exact failure. Process: no auto-deploy to prod without staging validation. Fast detection + automated rollback is the goal.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Enforce a mandatory staging environment with validation before production deployments.",
+            "Add automated post-deployment smoke tests that trigger automated rollbacks on failure."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Incident Resolution",
+            "Canary",
+            "Staging Validation",
+            "Regression Testing"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Observability — Prometheus & Alerting",
+      "order": 3,
+      "questions": [
+        {
+          "id": 41,
+          "questionNumber": 41,
+          "difficulty": "Medium",
+          "question": "What is the Prometheus data model?",
+          "answer": "Time series identified by metric name + label set. Format: metric_name{label1='val1',label2='val2'} value timestamp. Labels are dimensions — enable filtering and aggregation. High cardinality labels (user_id, request_id): AVOID — creates millions of series, OOM Prometheus. Good labels: method, status_code, service, environment, namespace.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Avoid high cardinality labels like user_id or request_id; they create millions of series and can OOM Prometheus."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Prometheus Model",
+            "Time Series",
+            "Cardinality",
+            "Labels"
+          ]
+        },
+        {
+          "id": 42,
+          "questionNumber": 42,
+          "difficulty": "Medium",
+          "question": "What are the four Prometheus metric types?",
+          "answer": "Counter: monotonically increasing (requests_total, errors_total) — use rate(). Gauge: can go up and down (memory_bytes, queue_size) — use directly or delta(). Histogram: samples observations in buckets (request_duration_seconds) — use histogram_quantile(). Summary: similar to histogram but quantiles computed client-side — avoid, use histogram instead.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Use Histogram instead of Summary when you need cluster-wide aggregations (summaries cannot be aggregated)."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Metric Types",
+            "Counter",
+            "Gauge",
+            "Histogram",
+            "Summary"
+          ]
+        },
+        {
+          "id": 43,
+          "questionNumber": 43,
+          "difficulty": "Hard",
+          "question": "What is the difference between rate() and irate()?",
+          "answer": "rate(): average per-second rate over the range — smoothed, good for dashboards and alerting. irate(): instantaneous rate based on last two samples — spiky, reflects sudden changes. Use rate() for alerts (avoid false positives from spikes). Use irate() for real-time dashboards showing current rate. Always use with counters, not gauges.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Use rate() for alerting rules to prevent false positives from transient spikes.",
+            "Use irate() on real-time graphs to capture instantaneous rate changes."
+          ],
+          "warnings": [
+            "Always use rate() and irate() with counters, never with gauges."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "rate function",
+            "irate function",
+            "PromQL",
+            "Counters"
+          ]
+        },
+        {
+          "id": 44,
+          "questionNumber": 44,
+          "difficulty": "Hard",
+          "question": "What is histogram_quantile() and how do you calculate p99 latency?",
+          "answer": "The following calculation gives the 99th percentile latency. Prometheus histograms have _bucket (cumulative counts per le boundary), _sum, _count. histogram_quantile interpolates within bucket. Accuracy depends on bucket boundaries — define buckets matching expected latency range. Always alert on p99, not average — average hides tail latency.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "prometheus",
+              "filename": "",
+              "code": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Always alert on p99 latency instead of average latency, as averages hide tail latency outliers."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "histogram_quantile",
+            "Latency",
+            "p99",
+            "PromQL"
+          ]
+        },
+        {
+          "id": 45,
+          "questionNumber": 45,
+          "difficulty": "Hard",
+          "question": "What is a recording rule and when must you use one?",
+          "answer": "Pre-computes expensive PromQL, stores as new metric. Must use when: same heavy query runs on multiple dashboards, query involves many series, query takes >1s. Example: the following recording rule. Reduces query load on Prometheus. Stored as regular time series — queryable like any metric.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "prometheus",
+              "filename": "",
+              "code": "record: job:request_rate5m:rate5m\nexpr: rate(http_requests_total[5m])"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Use recording rules for heavy dashboard queries that take longer than 1 second or traverse many time series."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Recording Rules",
+            "PromQL",
+            "Dashboard Performance"
+          ]
+        },
+        {
+          "id": 46,
+          "questionNumber": 46,
+          "difficulty": "Medium",
+          "question": "How do you write a good alerting rule?",
+          "answer": "Alert on symptoms not causes (high error rate not CPU). Use rate() over adequate window (5m minimum). Add severity label (warning/critical). Add runbook_url annotation. Add description with {{ $labels }} and {{ $value }}. Test with PromQL before adding. Example: the following alert rule.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "prometheus",
+              "filename": "",
+              "code": "ALERT HighErrorRate\n  IF rate(errors_total[5m]) / rate(requests_total[5m]) > 0.05\n  FOR 5m\n  LABELS { severity = \"critical\" }\n  ANNOTATIONS {\n    summary = \"High error rate on {{ $labels.service }}\",\n    runbook_url = \"https://wiki.domain/runbooks/high-errors\"\n  }"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Alert on symptoms (e.g. high error rates) rather than causes (e.g. high CPU utilization).",
+            "Always include a runbook_url in alert annotations."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Alert Rules",
+            "PromQL",
+            "Runbooks",
+            "Alerting Design"
+          ]
+        },
+        {
+          "id": 47,
+          "questionNumber": 47,
+          "difficulty": "Hard",
+          "question": "What is the FOR clause in Prometheus alerting rules?",
+          "answer": "Condition must be true for this duration before alert fires. Prevents flapping on transient spikes. FOR 5m: condition must hold for 5 consecutive minutes. Too short: noisy alerts. Too long: delayed detection. Pending state: condition true but FOR not elapsed. Firing state: FOR elapsed. For critical alerts: 2-5m. For warnings: 10-15m.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Use a 2-5m FOR clause for critical alerts and 10-15m for warning alerts to prevent flapping."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "FOR Clause",
+            "Alert Flapping",
+            "Alert Tuning"
+          ]
+        },
+        {
+          "id": 48,
+          "questionNumber": 48,
+          "difficulty": "Medium",
+          "question": "What is Alertmanager and what does it do?",
+          "answer": "Handles alerts from Prometheus: deduplication (same alert multiple times = one notification), grouping (related alerts in one message), routing (send to right team), silencing (suppress during maintenance), inhibition (suppress child alerts when parent fires). Configured via alertmanager.yml. Receivers: Slack, PagerDuty, email, webhook. Critical — configure before going to production.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Always configure Alertmanager before deploying workloads to production to prevent alert storms."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Alertmanager",
+            "Deduplication",
+            "Inhibition",
+            "Alert Routing"
+          ]
+        },
+        {
+          "id": 49,
+          "questionNumber": 49,
+          "difficulty": "Hard",
+          "question": "What is alert inhibition and when do you use it?",
+          "answer": "Suppress child alerts when parent is already firing. Example: inhibit all pod alerts when node is down (pod alerts are noise if node is gone). Inhibit rules: source_match (node down) inhibits target_match (pod alerts on that node). Reduces alert flood during major incidents. Without inhibition: 50 pod alerts when one node fails — alert fatigue.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "yaml",
+              "filename": "alertmanager.yml",
+              "code": "inhibit_rules:\n  - source_match:\n      alertname: 'NodeDown'\n    target_match:\n      alertname: 'InstanceDown'\n    equal: ['node']"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Use alert inhibition rules to suppress pod alerts when the host node is confirmed down."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Alert Inhibition",
+            "Alert Fatigue",
+            "Alertmanager Configuration"
+          ]
+        },
+        {
+          "id": 50,
+          "questionNumber": 50,
+          "difficulty": "Medium",
+          "question": "What is a Dead Man's Switch alert?",
+          "answer": "Alert that fires when it STOPS firing — detects if monitoring itself is broken. Always-firing alert: the first rule. Alertmanager routes this to a heartbeat service (Cronitor, healthchecks.io). If Alertmanager stops sending heartbeat: external service pages on-call. Catches: Prometheus down, Alertmanager down, network partition to monitoring. Essential for production.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "prometheus",
+              "filename": "",
+              "code": "ALERT DeadMansSwitch\n  IF vector(1)\n  LABELS { severity = \"none\" }"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Implement a Dead Man's Switch alert routed to an external heartbeat monitor (like healthchecks.io) to detect monitoring platform outages."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Dead Man's Switch",
+            "Heartbeat",
+            "Monitoring Outage"
+          ]
+        },
+        {
+          "id": 51,
+          "questionNumber": 51,
+          "difficulty": "Medium",
+          "question": "How do you handle alert fatigue?",
+          "answer": "Symptoms: on-call ignores alerts, alerts auto-resolved without investigation. Solutions: raise alert thresholds (warn before critical), add FOR duration (reduce flapping), group related alerts, inhibition rules, better runbooks (clear action per alert), regular alert review (kill alerts nobody acts on), SLO-based alerting (alert on user impact not symptoms). Measure: % of actionable alerts.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Focus on SLO-based alerting (alerting on user impact) rather than component symptoms to reduce alert fatigue.",
+            "Regularly review and delete alerts that do not require operator action."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Alert Fatigue",
+            "On-call Tuning",
+            "SLO Alerting"
+          ]
+        },
+        {
+          "id": 52,
+          "questionNumber": 52,
+          "difficulty": "Hard",
+          "question": "What is a multi-window multi-burn-rate alert?",
+          "answer": "SLO alerting pattern. Alert on multiple burn rates: fast burn (1h window, 14x rate) catches sudden outages, slow burn (6h window, 5x rate) catches gradual degradation. Both must fire simultaneously to alert — reduces false positives. Based on Google SRE error budget consumption rate. More meaningful than static threshold — directly tied to SLO violation.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Multi-burn-rate",
+            "SLO",
+            "Error Budget",
+            "Google SRE"
+          ]
+        },
+        {
+          "id": 53,
+          "questionNumber": 53,
+          "difficulty": "Hard",
+          "question": "What is Thanos and what problem does it solve?",
+          "answer": "Extends Prometheus: long-term storage (object storage — S3), global query view (query across multiple Prometheus instances), high availability (deduplication of HA pairs). Components: Sidecar (uploads blocks to S3), Store Gateway (queries S3), Query (fan-out queries), Compactor (downsamples old data). Alternative: Cortex, Mimir. Use when: retention > 2 weeks, multi-cluster observability needed.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Thanos",
+            "Prometheus Scale",
+            "Long-term Storage",
+            "Global Query"
+          ]
+        },
+        {
+          "id": 54,
+          "questionNumber": 54,
+          "difficulty": "Hard",
+          "question": "How do you monitor Kubernetes with Prometheus?",
+          "answer": "kube-prometheus-stack (Helm chart): deploys Prometheus Operator + Grafana + default K8s dashboards. ServiceMonitor CRDs (kube-prometheus-stack) auto-discover targets by label. PodMonitor: scrape pods directly. PrometheusRule: define alerts as CRDs. Key metrics: kube_pod_status_phase, container_cpu_usage_seconds_total, node_memory_MemAvailable_bytes. Scrape: kube-state-metrics (K8s object metrics) + node_exporter (hardware metrics).",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Deploy the kube-prometheus-stack Helm chart for automated Prometheus Operator and dashboard setups.",
+            "Use ServiceMonitor CRDs for declarative target scraping configurations."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Kubernetes Monitoring",
+            "kube-prometheus-stack",
+            "ServiceMonitor",
+            "node_exporter"
+          ]
+        },
+        {
+          "id": 55,
+          "questionNumber": 55,
+          "difficulty": "Hard",
+          "question": "What is the Prometheus Operator?",
+          "answer": "Kubernetes operator managing Prometheus instances as CRDs. CRDs: Prometheus, Alertmanager, ServiceMonitor, PodMonitor, PrometheusRule, ThanosRuler. Declarative config: define Prometheus setup in Git, operator reconciles. Auto-discovers ServiceMonitors by label. Manages: config reload, storage, RBAC. Standard way to run Prometheus on K8s — don't deploy raw Prometheus StatefulSet manually.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Do not deploy raw Prometheus StatefulSets manually on Kubernetes; use the Prometheus Operator instead."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Prometheus Operator",
+            "CRDs",
+            "StatefulSet",
+            "GitOps"
+          ]
+        },
+        {
+          "id": 56,
+          "questionNumber": 56,
+          "difficulty": "Medium",
+          "question": "How do you scrape a custom application metric in Prometheus?",
+          "answer": "App: expose /metrics endpoint in Prometheus exposition format. K8s: annotate pod (prometheus.io/scrape: 'true', prometheus.io/port: '8080') or create ServiceMonitor. Prometheus: discovers annotated pods or ServiceMonitor targets. Libraries: prom-client (Node.js), prometheus-client (Python), micrometer (Java). Verify: curl pod:8080/metrics shows your metrics.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "metadata:\n  annotations:\n    prometheus.io/scrape: \"true\"\n    prometheus.io/port: \"8080\""
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "curl http://pod-ip:8080/metrics"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Custom Metrics",
+            "Scraping",
+            "Pod Annotations",
+            "prom-client"
+          ]
+        },
+        {
+          "id": 57,
+          "questionNumber": 57,
+          "difficulty": "Hard",
+          "question": "What is a Prometheus federation?",
+          "answer": "Hierarchical scraping — one Prometheus scrapes another Prometheus's /federate endpoint. Use for: aggregating metrics from multiple cluster Prometheus instances into a global one. Scrape only pre-aggregated (recording rule) metrics — not all raw metrics. Simpler than Thanos for basic cross-cluster aggregation. Limitation: not real-time, federation has latency.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Federation is not real-time and introduces scraping latency.",
+            "Only scrape pre-aggregated metrics via federation, never all raw metrics to prevent overloading the hub."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Federation",
+            "/federate",
+            "Hierarchical Scraping",
+            "Scale"
+          ]
+        },
+        {
+          "id": 58,
+          "questionNumber": 58,
+          "difficulty": "Hard",
+          "question": "How do you calculate error budget from Prometheus metrics?",
+          "answer": "Error budget: (1 - SLO) × time period. Consumed: (1 - actual_availability) × time period. PromQL: the following equation. Alert when burn rate too high. Dashboard shows remaining error budget as %. Protects: don't deploy if <10% error budget remains this month.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "prometheus",
+              "filename": "",
+              "code": "1 - (sum(rate(http_requests_total{code!~\"5..\"}[30d])) / sum(rate(http_requests_total[30d])))"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Enforce a deployment freeze if less than 10% of the monthly error budget remains."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Error Budget",
+            "SLO Calculation",
+            "PromQL",
+            "Deployment Gate"
+          ]
+        },
+        {
+          "id": 59,
+          "questionNumber": 59,
+          "difficulty": "Hard",
+          "question": "What is exemplar support in Prometheus?",
+          "answer": "Exemplars: sample data points attached to metrics containing trace IDs. Example: histogram metric with exemplar {traceID='abc123'}. Links metrics to traces — click latency spike in Grafana → jump to Jaeger trace. Requires: OpenMetrics format, Prometheus 2.26+, Grafana datasource configured for exemplars. Closes the metrics-to-traces observability gap.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "prometheus",
+              "filename": "",
+              "code": "http_request_duration_seconds_bucket{le=\"0.5\"} 123 # {traceID=\"abc123\"} 0.42"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Exemplars",
+            "Trace Correlation",
+            "Jaeger",
+            "OpenMetrics"
+          ]
+        },
+        {
+          "id": 60,
+          "questionNumber": 60,
+          "difficulty": "Hard",
+          "question": "Situational: Prometheus is OOMKilling — what do you do?",
+          "answer": "Immediate: increase memory limit. Investigate: high cardinality labels (using the first command), too many targets, too long retention. Fix: add label dropping in scrape config (metric_relabel_configs), reduce retention period, enable recording rules for expensive queries, increase scrape interval for non-critical targets. Long-term: Thanos with S3 for storage offload.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "prometheus",
+              "filename": "",
+              "code": "topk(10, count by (__name__)({__name__=~\".+\"}))"
+            },
+            {
+              "language": "yaml",
+              "filename": "",
+              "code": "metric_relabel_configs:\n  - source_labels: [instance]\n    regex: \".*\"\n    action: drop"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "OOMKill",
+            "High Cardinality",
+            "metric_relabel_configs",
+            "Thanos"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Observability — Grafana, Loki & Jaeger",
+      "order": 4,
+      "questions": [
+        {
+          "id": 61,
+          "questionNumber": 61,
+          "difficulty": "Medium",
+          "question": "What is Grafana and what data sources does it support?",
+          "answer": "Visualisation and dashboarding platform. Data sources: Prometheus, Loki, Jaeger, Tempo, Elasticsearch, CloudWatch, Datadog, InfluxDB, PostgreSQL, MySQL, and 100+ via plugins. Unified view across all observability pillars. Alerting: Grafana Unified Alerting (replaces Prometheus Alertmanager for multi-datasource alerts). Enterprise: RBAC, audit logs, reporting.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Grafana",
+            "Data Sources",
+            "Grafana Alerting",
+            "Dashboards"
+          ]
+        },
+        {
+          "id": 62,
+          "questionNumber": 62,
+          "difficulty": "Medium",
+          "question": "What is a Grafana dashboard variable and how do you use it?",
+          "answer": "Template variable populated from datasource query: the first query. Dropdown in dashboard header — user selects value. Used in panel queries: the second query. Chained variables: cluster → namespace → pod. Makes dashboards reusable across all environments without duplication. Always add $__rate_interval variable for rate() queries.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "prometheus",
+              "filename": "",
+              "code": "label_values(kube_pod_info, namespace)"
+            },
+            {
+              "language": "prometheus",
+              "filename": "",
+              "code": "rate(http_requests_total{namespace=\"$namespace\"}[$__rate_interval])"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Always include $__rate_interval in rate() queries to automatically scale the range vector based on dashboard time windows."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Dashboard Variables",
+            "Grafana Variables",
+            "Chained Variables",
+            "$__rate_interval"
+          ]
+        },
+        {
+          "id": 63,
+          "questionNumber": 63,
+          "difficulty": "Hard",
+          "question": "What is $__rate_interval in Grafana?",
+          "answer": "Grafana-calculated interval for rate() queries — at least 4× scrape interval. Prevents using too-small interval that returns no data. Use the first calculation instead of hardcoded [5m]. Adapts to dashboard time range — wider range = larger interval = smoother graph. Best practice: always use $__rate_interval in rate() and increase() functions in Grafana.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "prometheus",
+              "filename": "",
+              "code": "rate(my_metric[$__rate_interval])"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Always use $__rate_interval in rate() and increase() functions within Grafana."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "$__rate_interval",
+            "Grafana Interpolation",
+            "Range Vector"
+          ]
+        },
+        {
+          "id": 64,
+          "questionNumber": 64,
+          "difficulty": "Medium",
+          "question": "How do you create a SLO dashboard in Grafana?",
+          "answer": "Panels: availability (% requests success), error rate over time, p50/p95/p99 latency, error budget remaining, burn rate. Thresholds: colour coding (green >99.9%, yellow >99.5%, red <99.5%). Annotations: deployment markers from CI/CD. Time range: 30d rolling window for SLO compliance, 1h for real-time. Share with stakeholders — business-readable availability number.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "SLO Dashboard",
+            "Grafana Panels",
+            "Thresholds",
+            "Annotations"
+          ]
+        },
+        {
+          "id": 65,
+          "questionNumber": 65,
+          "difficulty": "Medium",
+          "question": "What is Loki and how is it different from Elasticsearch?",
+          "answer": "Loki: indexes only log labels (stream selectors), not log content. Pull model: Promtail/Fluent Bit push logs. Storage: object storage (S3). Query: LogQL. Low cost — no full-text index. Fast label queries. Slow full-text search. ELK: indexes everything — powerful full-text search, complex aggregations, but expensive at scale. Choose Loki for Kubernetes logs at cost, ELK for complex log analytics.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Loki",
+            "Elasticsearch",
+            "Log Storage",
+            "LogQL"
+          ]
+        },
+        {
+          "id": 66,
+          "questionNumber": 66,
+          "difficulty": "Hard",
+          "question": "What is LogQL and what are its two query types?",
+          "answer": "Log queries: the first filter format. Metric queries: the second aggregation format. Filters: |= (contains), != (not contains), |~ (regex), !~ (not regex). Parsers: | json, | logfmt, | pattern, | regexp — extract fields from log lines for filtering and metrics.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "prometheus",
+              "filename": "",
+              "code": "{app=\"web\"} |= \"ERROR\""
+            },
+            {
+              "language": "prometheus",
+              "filename": "",
+              "code": "rate({app=\"web\"} |= \"ERROR\" [5m])"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "LogQL",
+            "Loki Queries",
+            "Metric Queries",
+            "Parsers"
+          ]
+        },
+        {
+          "id": 67,
+          "questionNumber": 67,
+          "difficulty": "Hard",
+          "question": "How do you ship logs from Kubernetes pods to Loki?",
+          "answer": "Promtail DaemonSet: reads container logs from /var/log/pods on each node, adds K8s labels (namespace, pod, container), pushes to Loki. Fluent Bit DaemonSet: alternative, higher performance, more output plugins. Labels: minimise cardinality — namespace, app, environment. Don't add pod_name as label — high cardinality. Query pod logs by filtering log content after label selection.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Do not add pod_name or user_id as a Loki label to avoid high cardinality issues."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Loki Logging",
+            "Promtail",
+            "Fluent Bit",
+            "DaemonSet",
+            "Carding"
+          ]
+        },
+        {
+          "id": 68,
+          "questionNumber": 68,
+          "difficulty": "Hard",
+          "question": "How do you correlate logs in Loki with metrics in Prometheus?",
+          "answer": "Derived fields in Grafana Loki datasource: regex extract trace_id from log line → create link to Jaeger. Use same labels across metrics and logs (namespace, app, environment) — filter both with same selectors. Grafana Explore: split view showing Prometheus metrics and Loki logs side by side. Annotations: show deployment events on both metric and log panels.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Observability Correlation",
+            "Loki",
+            "Prometheus",
+            "Jaeger Link",
+            "Derived Fields"
+          ]
+        },
+        {
+          "id": 69,
+          "questionNumber": 69,
+          "difficulty": "Medium",
+          "question": "What is structured logging and why does it matter for Loki?",
+          "answer": "JSON log lines: the first snippet. Benefits: Loki can parse JSON (| json) and filter on extracted fields (| json | duration_ms > 1000). Better than string concatenation — searchable, parseable, machine-readable. Standard: use structured logging library (winston, pino, zerolog) everywhere. Avoid: printf-style log strings.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "json",
+              "filename": "",
+              "code": "{\"level\":\"error\", \"msg\":\"DB connection failed\", \"trace_id\":\"abc123\", \"duration_ms\":450}"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Use pino, winston, or zerolog structured logging libraries across services."
+          ],
+          "warnings": [
+            "Avoid using printf-style raw log strings; enforce structured JSON logging instead."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Structured Logging",
+            "JSON Logs",
+            "Loki parsing",
+            "Pino",
+            "Winston"
+          ]
+        },
+        {
+          "id": 70,
+          "questionNumber": 70,
+          "difficulty": "Hard",
+          "question": "What is log sampling and when do you need it?",
+          "answer": "Ingest only a percentage of logs (e.g. 10% of DEBUG, 100% of ERROR). Use when: log volume too high for budget, high-traffic services generating GBs/hour. Implement in log shipper (Fluent Bit sampling filter) or application. Risk: sampled logs miss intermittent issues. Strategy: always 100% ERROR/WARN, sample INFO/DEBUG. Metrics for rates, logs for diagnosis — don't sample what you need for debugging.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Log sampling risks missing intermittent or rare issues in debug logs."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Log Sampling",
+            "Volume Control",
+            "Fluent Bit Filters"
+          ]
+        },
+        {
+          "id": 71,
+          "questionNumber": 71,
+          "difficulty": "Medium",
+          "question": "What is distributed tracing and what problem does it solve?",
+          "answer": "Traces a request's journey across multiple microservices. Each service creates a span (operation with timing). Spans linked by trace ID propagated in headers. Visualises: which service is slow, where errors originate, dependency relationships. Solves: 'our service is slow but we don't know which downstream call is causing it.' Essential for microservice architectures.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Distributed Tracing",
+            "Spans",
+            "Trace ID propagation",
+            "Microservices"
+          ]
+        },
+        {
+          "id": 72,
+          "questionNumber": 72,
+          "difficulty": "Medium",
+          "question": "What is OpenTelemetry and why is it the standard?",
+          "answer": "Vendor-neutral observability framework: unified API/SDK for metrics, logs, traces. Single instrumentation → multiple backends (Jaeger, Tempo, Datadog, New Relic). Replaces vendor-specific SDKs. Auto-instrumentation: zero-code instrumentation for common frameworks (Express, Django, Spring). OTEL Collector: receives, processes, exports telemetry. Adopt OTEL — avoid vendor lock-in in observability.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Adopt OpenTelemetry standard to avoid vendor lock-in in observability stacks."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "OpenTelemetry",
+            "OTEL",
+            "OTEL Collector",
+            "Vendor Neutral"
+          ]
+        },
+        {
+          "id": 73,
+          "questionNumber": 73,
+          "difficulty": "Medium",
+          "question": "What is a trace span and what does it contain?",
+          "answer": "Span: single unit of work. Contains: trace_id (shared across all spans in request), span_id (unique to this span), parent_span_id (links to parent), operation_name, service_name, start_time, duration, status (OK/ERROR), attributes (key-value metadata), events (timestamped log-like records). Root span: no parent. Child spans: created by downstream calls.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Spans",
+            "Trace ID",
+            "Span ID",
+            "Metadata"
+          ]
+        },
+        {
+          "id": 74,
+          "questionNumber": 74,
+          "difficulty": "Hard",
+          "question": "How does trace context propagation work?",
+          "answer": "W3C TraceContext standard: the first header name. Each service: reads incoming header, creates child span with parent_id from header, injects updated header into outgoing calls. Languages: OTEL SDK handles automatically if instrumented. Manual: extract context from incoming request, create span, inject into outgoing HTTP/gRPC calls. Must propagate through message queues too.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Context Propagation",
+            "W3C TraceContext",
+            "traceparent",
+            "Headers"
+          ]
+        },
+        {
+          "id": 75,
+          "questionNumber": 75,
+          "difficulty": "Hard",
+          "question": "What is Jaeger and its architecture?",
+          "answer": "Distributed tracing backend. Components: Agent (receives spans from app, UDP, lightweight), Collector (receives from agent, validates, stores), Query (API + UI for trace visualisation), Storage (Elasticsearch, Cassandra, Badger). All-in-one mode: dev only. Production: separate components, Elasticsearch backend. Alternatives: Tempo (Grafana, S3 storage), Zipkin, Lightstep.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Jaeger",
+            "Tracing Backend",
+            "Collector",
+            "Agent",
+            "Elasticsearch"
+          ]
+        },
+        {
+          "id": 76,
+          "questionNumber": 76,
+          "difficulty": "Hard",
+          "question": "How do you identify a bottleneck using distributed traces?",
+          "answer": "Open trace in Jaeger: see waterfall of spans. Look for: longest span (bottleneck service), sequential chains that could be parallelised, repeated calls (N+1 query pattern), wide gaps between spans (network latency or queuing). Click span: see attributes, events, logs. Filter: traces with duration > 1s. Compare: slow vs fast traces for same operation — spot the difference.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Bottleneck Analysis",
+            "Jaeger waterfall",
+            "N+1 Queries",
+            "Latency"
+          ]
+        },
+        {
+          "id": 77,
+          "questionNumber": 77,
+          "difficulty": "Hard",
+          "question": "What is sampling in distributed tracing?",
+          "answer": "Record only a percentage of traces — at full volume, tracing overhead is too high. Head-based sampling: decision at trace start (random 10%). Tail-based sampling: decision at trace end (keep 100% of error traces, 1% of success) — requires OTEL Collector. Always sample 100% of: errors, slow traces (>2s), debug traces. Sample 1-10% of healthy fast traces. Jaeger and OTEL support both.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Configure tail-based sampling in the OTEL Collector to keep 100% of errors and slow traces while sampling healthy transactions."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Sampling",
+            "Head-based Sampling",
+            "Tail-based Sampling",
+            "OTEL Collector"
+          ]
+        },
+        {
+          "id": 78,
+          "questionNumber": 78,
+          "difficulty": "Hard",
+          "question": "How do you instrument a Node.js application with OpenTelemetry?",
+          "answer": "Run the first command. Create tracing.js config. Require before app: the second execution command. Auto-instruments: HTTP, Express, gRPC, DB clients. Custom spans: the third JS snippet.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "npm install @opentelemetry/sdk-node @opentelemetry/auto-instrumentations-node"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "node -r ./tracing.js app.js"
+            },
+            {
+              "language": "javascript",
+              "filename": "tracing.js",
+              "code": "const { NodeSDK } = require('@opentelemetry/sdk-node');\nconst { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');\nconst sdk = new NodeSDK({\n  traceExporter: new opentelemetry.tracing.ConsoleSpanExporter(),\n  instrumentations: [getNodeAutoInstrumentations()]\n});\nsdk.start();"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Node.js",
+            "OpenTelemetry Instrumentation",
+            "Auto-instrumentation"
+          ]
+        },
+        {
+          "id": 79,
+          "questionNumber": 79,
+          "difficulty": "Medium",
+          "question": "What is the difference between metrics, logs, and traces — and when to use each?",
+          "answer": "Metrics: numeric, aggregated, cheap, good for alerting and dashboards (is there a problem?). Logs: detailed text records, expensive at scale, good for debugging specific events (what happened?). Traces: request flow across services, moderate cost, good for performance analysis (where is it slow?). Use all three: metrics alert you, logs give context, traces show the path. The three pillars of observability.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Observability Pillars",
+            "Metrics",
+            "Logs",
+            "Traces"
+          ]
+        },
+        {
+          "id": 80,
+          "questionNumber": 80,
+          "difficulty": "Hard",
+          "question": "Situational: Users report slow API responses intermittently — observability debug approach?",
+          "answer": "Step 1: Prometheus — check p99 latency graph, identify when slowness started. Step 2: Correlate with deployments (annotations on dashboard). Step 3: Loki — filter logs for slow requests (duration_ms > 1000) around that time. Step 4: Jaeger — find slow traces, identify which span is longest. Step 5: Fix the bottleneck (DB query, downstream service). Post-fix: add recording rule + alert for p99 > threshold.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Troubleshooting",
+            "Latency Spike",
+            "Observability correlation",
+            "Prometheus",
+            "Loki",
+            "Jaeger"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Linux Fundamentals",
+      "order": 5,
+      "questions": [
+        {
+          "id": 81,
+          "questionNumber": 81,
+          "difficulty": "Medium",
+          "question": "What is the Linux boot process?",
+          "answer": "BIOS/UEFI → bootloader (GRUB) → kernel loaded into memory → kernel initialises hardware → PID 1 (systemd) starts → systemd starts target units (multi-user.target for servers) → login prompt. Understanding this helps debug: kernel panics, systemd failures, filesystem issues at boot.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Boot Process",
+            "GRUB",
+            "Kernel Init",
+            "systemd"
+          ]
+        },
+        {
+          "id": 82,
+          "questionNumber": 82,
+          "difficulty": "Medium",
+          "question": "What is systemd and how do you manage services?",
+          "answer": "PID 1 on modern Linux. Manages services (units). Commands: systemctl start/stop/restart/status service. systemctl enable: start on boot. systemctl disable: remove from boot. journalctl -u service -f: follow service logs. systemctl list-units --failed: see failed services. Service file: /etc/systemd/system/myapp.service — defines ExecStart, Restart, User.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "systemctl start myapp"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "journalctl -u myapp -f"
+            },
+            {
+              "language": "ini",
+              "filename": "/etc/systemd/system/myapp.service",
+              "code": "[Service]\nExecStart=/usr/bin/myapp\nRestart=always\nUser=nobody"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "systemd",
+            "systemctl",
+            "Service Management",
+            "journalctl"
+          ]
+        },
+        {
+          "id": 83,
+          "questionNumber": 83,
+          "difficulty": "Medium",
+          "question": "What is the difference between a process and a thread?",
+          "answer": "Process: independent execution unit with own memory space (PID). Thread: lightweight unit within a process sharing memory. Fork: creates new process (copies memory). Clone: creates thread (shares memory). In containers: each container has own PID namespace — container PID 1 visible as different PID on host. ps aux shows all host processes including container processes.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Processes",
+            "Threads",
+            "Fork",
+            "Clone",
+            "PID namespace"
+          ]
+        },
+        {
+          "id": 84,
+          "questionNumber": 84,
+          "difficulty": "Medium",
+          "question": "How do Linux file permissions work?",
+          "answer": "rwxrwxrwx: owner/group/others. r=4, w=2, x=1. chmod 755: owner rwx, group r-x, others r-x. chmod +x: add execute. chown user:group file. Special: setuid (4xxx) — run as file owner, setgid (2xxx) — run as file group, sticky bit (1xxx) — only owner can delete. umask: default permission mask for new files (022 = 644 for files, 755 for dirs).",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "chmod 755 file.sh"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "chmod +x file.sh"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Permissions",
+            "chmod",
+            "chown",
+            "umask",
+            "sticky bit"
+          ]
+        },
+        {
+          "id": 85,
+          "questionNumber": 85,
+          "difficulty": "Medium",
+          "question": "What is an inode?",
+          "answer": "Data structure storing file metadata: permissions, ownership, timestamps, size, block locations. NOT the filename — directory maps filename → inode number. Hard link: two filenames pointing to same inode. Symlink: file containing path to another file (different inode). df -i: show inode usage. Disk can be full of inodes with space remaining — create many small files.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "df -i"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "A disk can run out of available inodes (df -i) even when physical storage space is still available."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "inodes",
+            "df -i",
+            "Hard Links",
+            "Symlinks"
+          ]
+        },
+        {
+          "id": 86,
+          "questionNumber": 86,
+          "difficulty": "Medium",
+          "question": "What is the /proc filesystem?",
+          "answer": "Virtual filesystem exposing kernel and process information. /proc/PID/: info about process (maps, fd, status, cmdline). /proc/meminfo: memory stats. /proc/cpuinfo: CPU info. /proc/net/: network stats. Not on disk — generated on read. Used by: ps, top, netstat — they read /proc. Useful for debugging without installing tools in containers.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "/proc",
+            "Kernel State",
+            "Memory Stats",
+            "Debugging"
+          ]
+        },
+        {
+          "id": 87,
+          "questionNumber": 87,
+          "difficulty": "Medium",
+          "question": "What are Linux signals and the most important ones?",
+          "answer": "Signals: async notifications to processes. SIGTERM (15): graceful shutdown request — process should clean up and exit. SIGKILL (9): immediate kill — cannot be caught or ignored. SIGINT (2): Ctrl+C. SIGHUP (1): reload config (nginx, sshd). SIGUSR1/SIGUSR2: user-defined. Docker stop: sends SIGTERM then SIGKILL after grace period. Always handle SIGTERM in production services.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Always handle SIGTERM in application code to allow graceful connections draining before shutdown."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Signals",
+            "SIGTERM",
+            "SIGKILL",
+            "Graceful Shutdown"
+          ]
+        },
+        {
+          "id": 88,
+          "questionNumber": 88,
+          "difficulty": "Hard",
+          "question": "How do you troubleshoot high CPU on a Linux server?",
+          "answer": "top/htop: identify PID with high CPU. ps aux --sort=-%cpu | head: sorted by CPU. perf top: kernel-level profiling. strace -p PID: trace syscalls. For containers: docker stats, then nsenter or kubectl exec. CPU throttling (K8s): container_cpu_cfs_throttled_seconds_total metric in Prometheus. Check: iowait (disk bottleneck), steal (VM CPU contention), user vs sys ratio.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "ps aux --sort=-%cpu | head -n 10"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "strace -p <PID>"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "High CPU Troubleshooting",
+            "top",
+            "strace",
+            "perf",
+            "CPU Throttling"
+          ]
+        },
+        {
+          "id": 89,
+          "questionNumber": 89,
+          "difficulty": "Hard",
+          "question": "How do you investigate disk I/O issues?",
+          "answer": "iostat -x 1: per-device I/O stats (util%, await, r/s, w/s). iotop: per-process I/O. lsof: open files per process. df -h: disk space. df -i: inode usage. du -sh /*: find large directories. find / -size +1G: find large files. In containers: overlay filesystem — docker system df shows usage. Excessive I/O: check for logging loops, database writes, core dumps.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "iostat -x 1 5"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "find / -size +1G"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Disk I/O",
+            "iostat",
+            "iotop",
+            "df -h",
+            "du"
+          ]
+        },
+        {
+          "id": 90,
+          "questionNumber": 90,
+          "difficulty": "Hard",
+          "question": "What is a zombie process and how do you handle it?",
+          "answer": "Process that has exited but hasn't been reaped by parent (parent hasn't called wait()). Shows as Z in ps. Can't be killed — already dead. Fix: kill parent process (forces kernel to reparent to PID 1 which reaps). In containers: PID 1 must reap zombies — use tini or dumb-init as PID 1 if app doesn't handle this. K8s: pause container acts as PID 1 per pod namespace.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Use tini or dumb-init in container entrypoints as PID 1 to ensure zombie processes are reaped correctly."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Zombie Processes",
+            "Reaping",
+            "tini",
+            "dumb-init"
+          ]
+        },
+        {
+          "id": 91,
+          "questionNumber": 91,
+          "difficulty": "Hard",
+          "question": "What is OOM killer and how does it decide what to kill?",
+          "answer": "Out of Memory killer: Linux mechanism killing processes when system is out of memory. Selects process to kill based on oom_score (higher = more likely killed). oom_score_adj: -1000 (never kill) to 1000 (kill first). Large memory users + not critical = killed first. Kernel log: dmesg | grep -i oom. In containers: cgroup memory limit triggers OOM for that cgroup only.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "dmesg | grep -i oom"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "OOM Killer",
+            "oom_score",
+            "dmesg",
+            "Memory Outage"
+          ]
+        },
+        {
+          "id": 92,
+          "questionNumber": 92,
+          "difficulty": "Hard",
+          "question": "How do file descriptors work and what is the limit?",
+          "answer": "Everything in Linux is a file: sockets, pipes, devices. FD 0: stdin, 1: stdout, 2: stderr. ulimit -n: per-process FD limit (default 1024). /proc/sys/fs/file-max: system-wide limit. Too many open files error: process hit FD limit. Fix: increase ulimit in service file (LimitNOFILE=65536). Check: ls /proc/PID/fd | wc -l. Common in: high-connection servers, file processing apps.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "ulimit -n"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "ls /proc/self/fd | wc -l"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Too many open files error occurs when a process reaches its file descriptors limit."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "File Descriptors",
+            "ulimit",
+            "/proc",
+            "High Connections"
+          ]
+        },
+        {
+          "id": 93,
+          "questionNumber": 93,
+          "difficulty": "Hard",
+          "question": "What is the difference between soft and hard limits (ulimit)?",
+          "answer": "Soft limit: current enforced limit — process can raise up to hard limit. Hard limit: ceiling — only root can raise. ulimit -Sn: show soft. ulimit -Hn: show hard. Set in /etc/security/limits.conf or systemd service (LimitNOFILE). For production services: set both soft and hard to same high value. Common limits to tune: nofile (FDs), nproc (processes), memlock.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "ulimit -Sn"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "ulimit -Hn"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "For high-load production systems, set soft and hard limits to the same high ceiling."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "ulimit",
+            "Soft Limit",
+            "Hard Limit",
+            "/etc/security/limits.conf"
+          ]
+        },
+        {
+          "id": 94,
+          "questionNumber": 94,
+          "difficulty": "Medium",
+          "question": "What is swap and should containers use it?",
+          "answer": "Swap: extends virtual memory using disk — slow. Swapping indicates memory pressure — system is struggling. In containers: --memory-swap controls swap. K8s: nodes should disable swap (kubelet required this until recently). Swap in containers: hides memory pressure — OOMKill is better than swap (clear signal vs silent degradation). Monitor: vmstat, /proc/meminfo SwapUsed — non-zero means memory pressure.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Swap in containers hides memory pressure, leading to slow performance degradation instead of clean OOMKill alerts."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Swap Memory",
+            "kubelet",
+            "Performance Tuning"
+          ]
+        },
+        {
+          "id": 95,
+          "questionNumber": 95,
+          "difficulty": "Hard",
+          "question": "How does Linux networking work at the kernel level?",
+          "answer": "Network stack: application → socket → TCP/UDP → IP → netfilter (iptables) → NIC driver → wire. iptables: packet filtering, NAT, mangle. Kubernetes uses iptables heavily (kube-proxy, NetworkPolicy). nftables: modern replacement for iptables. tc (traffic control): QoS, rate limiting. eBPF: programmable kernel hooks — Cilium uses eBPF for networking without iptables overhead.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Linux Networking",
+            "iptables",
+            "eBPF",
+            "Cilium",
+            "Kernel Stack"
+          ]
+        },
+        {
+          "id": 96,
+          "questionNumber": 96,
+          "difficulty": "Medium",
+          "question": "What is a Linux namespace and cgroup — explain the difference?",
+          "answer": "Namespace: isolation (what a process can see) — pid, net, mnt, uts, ipc, user namespaces. Cgroup: resource limits (what a process can use) — CPU, memory, I/O. Containers use both: namespaces for isolation (container sees its own PID 1, own network), cgroups for resource control (container can't use more than 512MB). Together they define a container.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Namespaces",
+            "cgroups",
+            "Containers Core",
+            "Isolation"
+          ]
+        },
+        {
+          "id": 97,
+          "questionNumber": 97,
+          "difficulty": "Hard",
+          "question": "How do you use strace and when?",
+          "answer": "Traces syscalls made by a process: strace -p PID. strace command: trace from start. -e trace=open,read: filter specific syscalls. Useful for: debugging 'permission denied' (see which file being accessed), 'file not found' (see exact path being opened), hanging processes (see which syscall is blocked). Overhead: high — don't use on production except briefly for diagnosis.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "strace -p <PID>"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "strace -e trace=open,read ./myprogram"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "strace has a high overhead; do not use on busy production environments except briefly for diagnostics."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "strace",
+            "Syscalls",
+            "Debugging",
+            "Low-level Diagnostics"
+          ]
+        },
+        {
+          "id": 98,
+          "questionNumber": 98,
+          "difficulty": "Hard",
+          "question": "What is eBPF and why is it significant for DevOps?",
+          "answer": "Extended Berkeley Packet Filter: run sandboxed programs in kernel without kernel module. Uses: network observability (Cilium, Hubble), security (Falco), performance tracing (bpftrace). Zero overhead when not tracing. No recompile/reboot needed. Tools: bpftrace (high-level), BCC (Python wrappers). Growing fast — Cilium replaces iptables, Falco uses eBPF for syscall monitoring. Future of Linux observability.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "eBPF",
+            "Kernel Programs",
+            "Cilium",
+            "Falco",
+            "bpftrace"
+          ]
+        },
+        {
+          "id": 99,
+          "questionNumber": 99,
+          "difficulty": "Medium",
+          "question": "What are the most important Linux performance tools to know cold?",
+          "answer": "top/htop: CPU/memory overview. vmstat 1: CPU, memory, swap, I/O rates. iostat -x 1: disk I/O. netstat -tuln / ss -tuln: listening ports. iftop / nethogs: network per interface/process. lsof -i: open network connections. dmesg | tail: kernel messages. journalctl -f: system logs. free -h: memory. df -h / df -i: disk space/inodes. All critical for live debugging.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "vmstat 1 5"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "ss -tuln"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "lsof -i"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Performance Tools",
+            "htop",
+            "vmstat",
+            "ss",
+            "lsof",
+            "dmesg"
+          ]
+        },
+        {
+          "id": 100,
+          "questionNumber": 100,
+          "difficulty": "Medium",
+          "question": "Situational: A production Linux server is responding slowly — first 5 commands you run?",
+          "answer": "1. top — CPU, memory, load average, top processes. 2. df -h — disk space (full disk causes all sorts of slowness). 3. free -h — memory and swap usage. 4. iostat -x 1 3 — disk I/O wait. 5. ss -tuln — listening ports (confirm services running). Then: check application logs (journalctl -u service), network (iftop), kernel messages (dmesg | tail). Systematic top-down approach.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "top"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "df -h"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "free -h"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "iostat -x 1 3"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "ss -tuln"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Slow Server",
+            "Troubleshooting Command List",
+            "iostat",
+            "free",
+            "df"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Bash Scripting",
+      "order": 6,
+      "questions": [
+        {
+          "id": 101,
+          "questionNumber": 101,
+          "difficulty": "Easy",
+          "question": "What is the difference between $() and backticks for command substitution?",
+          "answer": "Both execute command and substitute output. $(): preferred — nestable, readable. Backticks: legacy, can't nest, hard to read in complex scripts. Example: DATE=$(date +%Y-%m-%d). Always use $(). Set -e: exit on error. Set -u: exit on unset variable. Set -o pipefail: pipe fails if any command fails. Start every script with: #!/bin/bash set -euo pipefail.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "DATE=$(date +%Y-%m-%d)"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "#!/bin/bash\nset -euo pipefail"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Always start Bash scripts with set -euo pipefail to catch execution errors early.",
+            "Use $() instead of legacy backticks."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Command Substitution",
+            "set -euo pipefail",
+            "Scripting Basics"
+          ]
+        },
+        {
+          "id": 102,
+          "questionNumber": 102,
+          "difficulty": "Medium",
+          "question": "What does set -euo pipefail do and why is it important?",
+          "answer": "set -e: exit immediately on non-zero exit code. set -u: treat unset variables as errors (prevents silent $UNDEFINED = ''). set -o pipefail: pipe fails if any command in pipe fails (default: only last command matters). Without these: scripts silently continue after failures. Always add to production scripts. Exceptions: use || true for commands allowed to fail.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "set -euo pipefail"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "my_command || true"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Without set -euo pipefail, scripts can silently continue after command failures, risking undefined behavior."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "set -euo pipefail",
+            "Error Handling",
+            "Bash Safety"
+          ]
+        },
+        {
+          "id": 103,
+          "questionNumber": 103,
+          "difficulty": "Medium",
+          "question": "How do you handle errors in Bash scripts?",
+          "answer": "Trap: trap 'cleanup' EXIT — runs cleanup function on any exit. trap 'echo Error on line $LINENO' ERR — custom error handler. Check exit codes: command || { echo 'failed'; exit 1; }. Conditional: if ! command; then handle_error; fi. Log errors to stderr: echo 'Error' >&2. Return meaningful exit codes: exit 0 (success), exit 1 (general error), exit 2 (misuse).",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "trap cleanup EXIT"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "trap 'echo \"Error on line $LINENO\"' ERR"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "command || { echo \"Command failed\" >&2; exit 1; }"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Always redirect error log messages to stderr using >&2."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Error Handling",
+            "trap",
+            "Exit Codes",
+            "stderr"
+          ]
+        },
+        {
+          "id": 104,
+          "questionNumber": 104,
+          "difficulty": "Hard",
+          "question": "How do you loop over files and handle filenames with spaces?",
+          "answer": "for file in ./*.txt — glob expansion (not ls). while IFS= read -r line — read lines from file safely. find . -name '*.txt' -print0 | xargs -0: null-delimited for filenames with spaces. Always quote variables: '$file' not $file. Never parse ls output — use globs or find. mapfile -t arr < file: read file into array.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "for file in ./*.txt; do\n  echo \"$file\"\ndone"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "find . -name \"*.txt\" -print0 | xargs -0 rm"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "while IFS= read -r line; do\n  echo \"$line\"\ndone < input.txt"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Never parse ls output in loops; use globs or find instead.",
+            "Always quote variables containing file paths (e.g. \"$file\") to prevent word splitting on spaces."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Loops",
+            "File Expansion",
+            "Word Splitting",
+            "Paths with Spaces"
+          ]
+        },
+        {
+          "id": 105,
+          "questionNumber": 105,
+          "difficulty": "Medium",
+          "question": "What is the difference between [ ] and [[ ]] in Bash?",
+          "answer": "[: POSIX test command — works in sh, limited. [[: Bash built-in — supports regex (=~), no word splitting, no glob expansion on variables, supports && and || inside. Prefer [[ ]] in Bash scripts always. [[ $var =~ ^[0-9]+$ ]]: regex match. [[ -f $file && -r $file ]]: compound conditions. Single [ ]: use only when POSIX portability required.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "if [[ $var =~ ^[0-9]+$ ]]; then\n  echo \"is integer\"\nfi"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "if [[ -f $file && -r $file ]]; then\n  echo \"readable\"\nfi"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Always prefer the double bracket [[ ]] syntax in Bash scripts over the single bracket [ ] POSIX syntax."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "[ vs [[",
+            "POSIX",
+            "Regex",
+            "Conditional logic"
+          ]
+        },
+        {
+          "id": 106,
+          "questionNumber": 106,
+          "difficulty": "Hard",
+          "question": "How do you use awk effectively?",
+          "answer": "awk '{print $1}': print first field. awk -F: '{print $2}': colon delimiter. awk 'NR>1': skip header. awk '{sum+=$1} END{print sum}': sum column. awk '/pattern/ {print}': filter lines. awk '{gsub(/old/,new); print}': replace. Essential for: parsing structured output (kubectl, aws cli), extracting columns, transforming data without Python. Learn these patterns cold.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "awk '{print $1}'"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "awk -F: '{print $2}'"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "awk 'NR>1'"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "awk '{sum+=$1} END {print sum}'"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "awk",
+            "Text Parsing",
+            "CLI utils"
+          ]
+        },
+        {
+          "id": 107,
+          "questionNumber": 107,
+          "difficulty": "Medium",
+          "question": "What are the most useful grep flags to know?",
+          "answer": "grep -r: recursive. grep -i: case-insensitive. grep -v: invert match (exclude). grep -l: show filenames only. grep -n: show line numbers. grep -c: count matches. grep -E: extended regex (same as egrep). grep -o: show only matching part. grep -A 3 / -B 3 / -C 3: show 3 lines after/before/around. grep -P: Perl regex. Pipe chains: cat file | grep ERROR | grep -v DEBUG.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "grep -ri \"error\" ./logs/"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "grep -v \"DEBUG\" app.log"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "grep -A 3 -B 3 \"CRITICAL\" app.log"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "grep",
+            "Text Search",
+            "Log Filtering"
+          ]
+        },
+        {
+          "id": 108,
+          "questionNumber": 108,
+          "difficulty": "Medium",
+          "question": "How do you use sed for text transformation?",
+          "answer": "sed 's/old/new/': replace first occurrence. sed 's/old/new/g': replace all. sed -i 's/old/new/g' file: in-place edit. sed '/pattern/d': delete matching lines. sed -n '/pattern/p': print only matching. sed '1d': delete first line. sed 's/^/prefix/': add prefix to all lines. Use in CI: update image tags in K8s manifests: sed -i 's|image:.*|image:newimage:tag|' deployment.yaml.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "sed 's/old/new/g' input.txt"
+            },
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "sed -i 's|image:.*|image:newimage:tag|' deployment.yaml"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "sed",
+            "Text Replacement",
+            "In-place Edit",
+            "Image Tags Update"
+          ]
+        },
+        {
+          "id": 109,
+          "questionNumber": 109,
+          "difficulty": "Hard",
+          "question": "How do you write a robust Kubernetes health check script in Bash?",
+          "answer": "Write a script that queries namespaces, uses kubectl to get pod health metrics, checks status phases, parses output using awk and wc, and exits with a non-zero code on failures.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "k8s_health_check.sh",
+              "code": "#!/bin/bash\nset -euo pipefail\nNAMESPACE=${1:-default}\nUNHEALTHY=$(kubectl get pods -n $NAMESPACE --no-headers | awk '$3 != \"Running\" && $3 != \"Completed\" {print $1}' | wc -l)\nif [[ $UNHEALTHY -gt 0 ]]; then\n  echo \"ALERT: $UNHEALTHY unhealthy pods in $NAMESPACE\" >&2\n  kubectl get pods -n $NAMESPACE | grep -v Running | grep -v Completed\n  exit 1\nfi\necho \"All pods healthy in $NAMESPACE\""
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Bash Scripting",
+            "Kubernetes Health Check",
+            "kubectl",
+            "awk"
+          ]
+        },
+        {
+          "id": 110,
+          "questionNumber": 110,
+          "difficulty": "Medium",
+          "question": "What are the key patterns for writing production-grade Bash scripts?",
+          "answer": "shebang + set -euo pipefail. Functions for reuse. Trap for cleanup. Log to stderr (echo >&2) not stdout. Check dependencies: command -v kubectl || { echo 'kubectl required'; exit 1; }. Use readonly for constants. Quote all variables. Meaningful exit codes. Usage function for --help. Avoid: parsing output of other scripts, assuming working directory, hardcoding paths. Keep scripts focused — one purpose per script.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "bash",
+              "filename": "",
+              "code": "command -v kubectl || { echo \"kubectl required\" >&2; exit 1; }"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Log all debug and error output to stderr, reserving stdout for script output data.",
+            "Use command -v to verify dependency availability before execution."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Best Practices",
+            "Production Scripts",
+            "Error Handling",
+            "Dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Python Core for DevOps",
+      "order": 7,
+      "questions": [
+        {
+          "id": 111,
+          "questionNumber": 111,
+          "difficulty": "Medium",
+          "question": "What Python data structures do you use most in DevOps scripting?",
+          "answer": "dict: config parsing, JSON API responses, label maps. list: pod lists, resource collections. set: deduplication (unique namespaces). tuple: immutable pairs. defaultdict: avoid KeyError in aggregation. Counter: count occurrences (error types, namespaces). namedtuple: readable structured data. Master these — 90% of DevOps Python uses dict and list manipulation.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Python Structures",
+            "dict",
+            "list",
+            "set",
+            "Counter"
+          ]
+        },
+        {
+          "id": 112,
+          "questionNumber": 112,
+          "difficulty": "Medium",
+          "question": "How do you make HTTP requests in Python for DevOps scripts?",
+          "answer": "Use requests library: requests.get(url, headers=headers, timeout=30). Check: response.raise_for_status() — raises exception on 4xx/5xx. Parse: response.json(). POST: requests.post(url, json=payload). Session: requests.Session() for connection pooling. Always set timeout — hanging requests break scripts. retry with tenacity for flaky APIs.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "python",
+              "filename": "",
+              "code": "import requests\n\ntry:\n    response = requests.get('https://api.github.com', timeout=10)\n    response.raise_for_status()\n    data = response.json()\nexcept requests.exceptions.HTTPError as err:\n    print(f\"HTTP error: {err}\")"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Always set an explicit timeout on HTTP requests to prevent scripts from hanging indefinitely.",
+            "Use requests.Session() for connection pooling across multiple requests."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "HTTP Requests",
+            "requests library",
+            "Timeouts",
+            "API integration"
+          ]
+        },
+        {
+          "id": 113,
+          "questionNumber": 113,
+          "difficulty": "Hard",
+          "question": "How do you parse and generate JSON and YAML in Python?",
+          "answer": "JSON: import json. json.loads(string) / json.load(file). json.dumps(obj, indent=2). YAML: import yaml (PyYAML). yaml.safe_load(file) — always safe_load, not load (security). yaml.dump(obj). For K8s manifests: yaml.safe_load_all() for multi-document YAML. Validate schema: jsonschema library. In CI scripts: parse kubectl -o json output with json.loads(subprocess.check_output(...)).",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "python",
+              "filename": "",
+              "code": "import json\nimport yaml\n\n# Safe load YAML\nwith open('manifest.yaml', 'r') as f:\n    data = yaml.safe_load(f)\n\n# Dump to JSON\njson_str = json.dumps(data, indent=2)"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Always use yaml.safe_load instead of yaml.load to prevent arbitrary code execution vulnerabilities."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "JSON Parsing",
+            "YAML Parsing",
+            "safe_load",
+            "PyYAML",
+            "Security"
+          ]
+        },
+        {
+          "id": 114,
+          "questionNumber": 114,
+          "difficulty": "Hard",
+          "question": "How do you run shell commands from Python?",
+          "answer": "Use subprocess.run(['kubectl','get','pods','-n',ns], capture_output=True, text=True, check=True). check=True: raises CalledProcessError on non-zero exit. capture_output=True: captures stdout/stderr. text=True: string not bytes. For streaming: subprocess.Popen with stdout=PIPE. Never use os.system() or shell=True with user input — command injection risk.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "python",
+              "filename": "",
+              "code": "import subprocess\n\ntry:\n    result = subprocess.run(['kubectl', 'get', 'pods'], capture_output=True, text=True, check=True)\n    print(result.stdout)\nexcept subprocess.CalledProcessError as e:\n    print(f\"Command failed: {e.stderr}\")"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Never pass shell=True or use os.system() with unvalidated user inputs due to critical command injection risks."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "subprocess",
+            "Shell Execution",
+            "Command Injection",
+            "sys command"
+          ]
+        },
+        {
+          "id": 115,
+          "questionNumber": 115,
+          "difficulty": "Hard",
+          "question": "How do you use the Kubernetes Python client?",
+          "answer": "Import kubernetes. config.load_kube_config() (local) or config.load_incluster_config() (in-pod). v1 = client.CoreV1Api(). apps = client.AppsV1Api(). pods = v1.list_pod_for_all_namespaces().items. Field selector: field_selector='status.phase!=Running'. Label selector: label_selector='app=web'. Patch: apps.patch_namespaced_deployment(name, ns, body). Watch: watch.Watch().stream(v1.list_pod_for_all_namespaces).",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "python",
+              "filename": "",
+              "code": "from kubernetes import client, config\n\ntry:\n    config.load_kube_config()\nexcept config.ConfigException:\n    config.load_incluster_config()\n\nv1 = client.CoreV1Api()\nfor pod in v1.list_pod_for_all_namespaces().items:\n    print(f\"{pod.metadata.namespace}/{pod.metadata.name}\")"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Kubernetes Client",
+            "load_kube_config",
+            "CoreV1Api",
+            "Pod Listing"
+          ]
+        },
+        {
+          "id": 116,
+          "questionNumber": 116,
+          "difficulty": "Hard",
+          "question": "How do you use boto3 for AWS automation?",
+          "answer": "import boto3. client = boto3.client('s3', region_name='ap-south-1'). IAM role credentials: auto-discovered from environment (IRSA in K8s, instance profile on EC2). Paginator for large result sets: paginator = client.get_paginator('list_objects_v2'). Waiter: ec2.get_waiter('instance_running').wait(InstanceIds=[id]). Error handling: except botocore.exceptions.ClientError as e: check e.response['Error']['Code'].",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "python",
+              "filename": "",
+              "code": "import boto3\nfrom botocore.exceptions import ClientError\n\ns3 = boto3.client('s3')\ntry:\n    paginator = s3.get_paginator('list_objects_v2')\n    for page in paginator.paginate(Bucket='my-bucket'):\n        for obj in page.get('Contents', []):\n            print(obj['Key'])\nexcept ClientError as e:\n    print(e.response['Error']['Code'])"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "boto3",
+            "AWS SDK",
+            "Paginators",
+            "ClientError"
+          ]
+        },
+        {
+          "id": 117,
+          "questionNumber": 117,
+          "difficulty": "Hard",
+          "question": "How do you handle exceptions properly in Python DevOps scripts?",
+          "answer": "Specific exceptions: except subprocess.CalledProcessError as e: not bare except. Log: logging.exception('message') — includes traceback. Retry: tenacity @retry(stop=stop_after_attempt(3), wait=wait_exponential()). Context: raise RuntimeError('Failed to get pods') from e — chain exceptions. Exit codes: sys.exit(1) on failure. Never silently swallow exceptions in automation scripts.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "python",
+              "filename": "",
+              "code": "import sys\nimport logging\n\ntry:\n    # code block\n    pass\nexcept SpecificException as e:\n    logging.exception(\"Error during execution\")\n    sys.exit(1)"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Never silently swallow exceptions; exit with a non-zero code to signal failures to CI/CD executors."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Exception Handling",
+            "Logging Traceback",
+            "tenacity",
+            "Exit Codes"
+          ]
+        },
+        {
+          "id": 118,
+          "questionNumber": 118,
+          "difficulty": "Medium",
+          "question": "What is argparse and how do you use it for CLI tools?",
+          "answer": "import argparse. parser = argparse.ArgumentParser(description='K8s health check'). parser.add_argument('--namespace', '-n', default='default', help='K8s namespace'). parser.add_argument('--threshold', type=int, default=5). parser.add_argument('--verbose', action='store_true'). args = parser.parse_args(). Makes scripts usable as proper CLI tools. Always add --help support. Use subparsers for complex CLIs.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "python",
+              "filename": "",
+              "code": "import argparse\n\nparser = argparse.ArgumentParser(description='AWS CLI utility')\nparser.add_argument('--bucket', required=True, help='S3 Bucket name')\nargs = parser.parse_args()\nprint(args.bucket)"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "argparse",
+            "CLI tools",
+            "Argument Parsing"
+          ]
+        },
+        {
+          "id": 119,
+          "questionNumber": 119,
+          "difficulty": "Medium",
+          "question": "How do you write a Python script that posts to Slack?",
+          "answer": "import requests, json. webhook = os.environ['SLACK_WEBHOOK']. payload = {'text': f':alert: {message}', 'blocks': [...]}. r = requests.post(webhook, json=payload, timeout=10). r.raise_for_status(). Get webhook from env var — never hardcode. Use Block Kit for rich messages. For high-volume: use slack_sdk with proper rate limiting. Used in: deployment notifications, alert forwarding, health check results.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "python",
+              "filename": "",
+              "code": "import os\nimport requests\n\nwebhook_url = os.environ.get('SLACK_WEBHOOK')\npayload = {'text': 'Deployment Successful!'}\nrequests.post(webhook_url, json=payload, timeout=10)"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Never hardcode webhook URLs in files; retrieve them from environment variables or Secrets Managers."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Slack notifications",
+            "Webhooks",
+            "slack_sdk",
+            "Integrations"
+          ]
+        },
+        {
+          "id": 120,
+          "questionNumber": 120,
+          "difficulty": "Medium",
+          "question": "How do you read and write files safely in Python?",
+          "answer": "with open('file.txt', 'r') as f: content = f.read() — context manager ensures close on exception. Write atomically: write to temp file, then os.replace(tmp, target) — prevents partial writes. Path handling: use pathlib.Path not os.path. Check existence: Path('file').exists(). Read JSON: json.load(open(file)) — but prefer with statement. Handle encoding: open(file, encoding='utf-8').",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "python",
+              "filename": "",
+              "code": "import os\nfrom pathlib import Path\n\ntarget_file = Path('app.conf')\ntmp_file = Path('app.conf.tmp')\n\nwith open(tmp_file, 'w', encoding='utf-8') as f:\n    f.write('config_data')\nos.replace(tmp_file, target_file)"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Always use context managers (with open) for file operations.",
+            "Write to a temporary file and use os.replace to perform atomic file writes and prevent file corruption."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "File Operations",
+            "Context Managers",
+            "Atomic Write",
+            "pathlib"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Python Scripting for Infrastructure",
+      "order": 8,
+      "questions": [
+        {
+          "id": 121,
+          "questionNumber": 121,
+          "difficulty": "Hard",
+          "question": "What is a Python generator and when do you use it in DevOps?",
+          "answer": "Function with yield — returns iterator, doesn't load all into memory. Use for: processing large log files line by line, streaming K8s watch events, paginating AWS API results. Example: def get_all_pods(): for ns in namespaces: for pod in v1.list_namespaced_pod(ns).items: yield pod. Memory efficient — doesn't load 10,000 pods into list. Use when: processing more items than fit comfortably in memory.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "python",
+              "filename": "",
+              "code": "def parse_large_log(file_path):\n    with open(file_path, 'r', encoding='utf-8') as f:\n        for line in f:\n            if 'ERROR' in line:\n                yield line"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Generators",
+            "yield",
+            "Memory Efficiency",
+            "Log Parsing"
+          ]
+        },
+        {
+          "id": 122,
+          "questionNumber": 122,
+          "difficulty": "Hard",
+          "question": "How do you write unit tests for a Kubernetes automation script?",
+          "answer": "unittest.mock.patch: mock kubernetes client API calls. Mock return values: mock_v1.list_pod_for_all_namespaces.return_value.items = [mock_pod]. pytest: preferred test framework. Parametrize: @pytest.mark.parametrize for multiple test cases. Test: happy path, empty results, API errors, pagination. Don't make real API calls in unit tests — mock everything. Integration tests: separate, run against real cluster in CI.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "python",
+              "filename": "test_k8s.py",
+              "code": "from unittest.mock import patch, MagicMock\n\n@patch('kubernetes.client.CoreV1Api.list_pod_for_all_namespaces')\ndef test_get_pods(mock_list):\n    mock_pod = MagicMock()\n    mock_pod.metadata.name = 'test-pod'\n    mock_list.return_value.items = [mock_pod]\n    # Assert business logic output"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Never perform real Kubernetes API queries inside unit tests; mock all external API wrappers."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Unit Testing",
+            "Mocking",
+            "pytest",
+            "kubernetes client"
+          ]
+        },
+        {
+          "id": 123,
+          "questionNumber": 123,
+          "difficulty": "Medium",
+          "question": "How do you use Python logging properly?",
+          "answer": "import logging. logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s'). logger = logging.getLogger(__name__). logger.info/warning/error/exception. Structured logging: python-json-logger for JSON output (better for Loki). Log levels: DEBUG (verbose), INFO (normal ops), WARNING (unexpected but handled), ERROR (failure), CRITICAL (system failure). Never print() in production scripts — use logging.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "python",
+              "filename": "",
+              "code": "import logging\n\nlogger = logging.getLogger(__name__)\nlogging.basicConfig(level=logging.INFO)\nlogger.info(\"System initiated\")"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [
+            "Do not use print() statements in production code; use the standard logging framework instead."
+          ],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Logging",
+            "python-json-logger",
+            "Loki integration"
+          ]
+        },
+        {
+          "id": 124,
+          "questionNumber": 124,
+          "difficulty": "Medium",
+          "question": "What is the difference between os.environ.get() and os.environ[]?",
+          "answer": "os.environ['KEY']: raises KeyError if not set — use when variable is required. os.environ.get('KEY', 'default'): returns default if not set — use when optional. Pattern: required = os.environ['REQUIRED_VAR'] at script start — fail fast if missing. Optional: debug = os.environ.get('DEBUG', 'false').lower() == 'true'. Never hardcode values that vary per environment — always from env vars.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "python",
+              "filename": "",
+              "code": "import os\n\n# Fail-fast pattern\ndb_url = os.environ['DATABASE_URL']\n\n# Optional environment variable\ndebug_mode = os.environ.get('DEBUG', 'false').lower() == 'true'"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Adopt the fail-fast pattern for mandatory environment configurations using direct dictionary access (os.environ['KEY'])."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "os.environ",
+            "Environment Variables",
+            "Fail-fast"
+          ]
+        },
+        {
+          "id": 125,
+          "questionNumber": 125,
+          "difficulty": "Hard",
+          "question": "How do you handle concurrent API calls in Python?",
+          "answer": "concurrent.futures.ThreadPoolExecutor: I/O-bound (API calls). with ThreadPoolExecutor(max_workers=10) as ex: results = list(ex.map(check_namespace, namespaces)). asyncio + aiohttp: async I/O for high concurrency. For K8s: check all namespaces in parallel not sequentially — 10× faster. Rate limiting: threading.Semaphore or asyncio.Semaphore to avoid API rate limits. CPU-bound: ProcessPoolExecutor.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "python",
+              "filename": "",
+              "code": "from concurrent.futures import ThreadPoolExecutor\n\ndef check_ns(ns):\n    # Query API\n    pass\n\nwith ThreadPoolExecutor(max_workers=5) as executor:\n    executor.map(check_ns, ['default', 'kube-system', 'app'])"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Concurrency",
+            "ThreadPoolExecutor",
+            "asyncio",
+            "Semaphore",
+            "API optimization"
+          ]
+        },
+        {
+          "id": 126,
+          "questionNumber": 126,
+          "difficulty": "Hard",
+          "question": "Write a Python function to check if all deployments in a namespace are healthy.",
+          "answer": "Write a function utilizing AppsV1Api to list deployments in a namespace, checking if status available_replicas matches spec replicas.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "python",
+              "filename": "deploy_health.py",
+              "code": "def check_deployments(ns):\n    apps = client.AppsV1Api()\n    deps = apps.list_namespaced_deployment(ns).items\n    unhealthy = []\n    for d in deps:\n        desired = d.spec.replicas or 0\n        available = d.status.available_replicas or 0\n        if available < desired:\n            unhealthy.append(f\"{d.metadata.name}: {available}/{desired}\")\n    return unhealthy"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Python Scripting",
+            "Kubernetes client",
+            "Deployment Health"
+          ]
+        },
+        {
+          "id": 127,
+          "questionNumber": 127,
+          "difficulty": "Hard",
+          "question": "How do you use Python to interact with AWS Secrets Manager?",
+          "answer": "Create secretsmanager client. Retrieve secret_value and load JSON. Cache locally with TTL to prevent calling API on every request. Handle ResourceNotFoundException. Rotate secrets via API. Use IRSA in EKS to avoid hardcoded credentials.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "python",
+              "filename": "",
+              "code": "import boto3\nimport json\nfrom botocore.exceptions import ClientError\n\ndef get_secret():\n    client = boto3.client('secretsmanager', region_name='ap-south-1')\n    try:\n        res = client.get_secret_value(SecretId='prod/db/password')\n        return json.loads(res['SecretString'])\n    except ClientError as e:\n        if e.response['Error']['Code'] == 'ResourceNotFoundException':\n            raise"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [
+            "Cache retrieved secrets locally with a Time To Live (TTL) to avoid calling the secretsmanager API on every request/function call.",
+            "Enforce IRSA in Kubernetes environments to eliminate static security credentials."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Secrets Manager",
+            "boto3",
+            "Credentials Caching",
+            "IRSA"
+          ]
+        },
+        {
+          "id": 128,
+          "questionNumber": 128,
+          "difficulty": "Hard",
+          "question": "How do you write a Python script to parse and analyse log files?",
+          "answer": "Use file generator for memory efficiency. Load JSON logs. Filter on specific log level. Aggregate occurrences of error types using Counter and print top 10 most common.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "python",
+              "filename": "parse_logs.py",
+              "code": "from collections import Counter\nimport json\n\ndef parse_errors(log_path):\n    errors = []\n    with open(log_path, 'r', encoding='utf-8') as f:\n        for line in f:\n            try:\n                entry = json.loads(line)\n                if entry.get('level') == 'ERROR':\n                    errors.append(entry)\n            except json.JSONDecodeError:\n                continue\n    common_errors = Counter(e['error_type'] for e in errors if 'error_type' in e).most_common(10)\n    return common_errors"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Log Analysis",
+            "Counter",
+            "JSON Logs",
+            "Python Generator"
+          ]
+        },
+        {
+          "id": 129,
+          "questionNumber": 129,
+          "difficulty": "Medium",
+          "question": "What Python libraries are essential for a DevOps engineer?",
+          "answer": "kubernetes: K8s API client. boto3/botocore: AWS. requests: HTTP. pyyaml: YAML parsing. click or argparse: CLI tools. tenacity: retry logic. python-json-logger: structured logging. pytest: testing. paramiko: SSH automation. hvac: HashiCorp Vault. dataclasses: structured data. rich: beautiful CLI output. typer: modern CLI (type hints based). Avoid: too many dependencies — keep scripts lean.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [
+            "Keep scripts lean; minimize the count of external python package dependencies to simplify execution context bootstrap."
+          ],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Libraries",
+            "boto3",
+            "kubernetes client",
+            "tenacity",
+            "typer"
+          ]
+        },
+        {
+          "id": 130,
+          "questionNumber": 130,
+          "difficulty": "Hard",
+          "question": "Situational: Write a Python script to find pods with no resource limits set.",
+          "answer": "Write a script utilizing CoreV1Api to loop over all pods in all namespaces, checking if container resources have limits and requests set.",
+          "keyPoints": [],
+          "codeBlocks": [
+            {
+              "language": "python",
+              "filename": "find_limitless_pods.py",
+              "code": "from kubernetes import client, config\n\ndef scan_pod_resources():\n    config.load_kube_config()\n    v1 = client.CoreV1Api()\n    for pod in v1.list_pod_for_all_namespaces().items:\n        for c in pod.spec.containers:\n            limits = c.resources.limits if c.resources else None\n            requests = c.resources.requests if c.resources else None\n            if not limits:\n                print(f\"{pod.metadata.namespace}/{pod.metadata.name}/{c.name}: NO LIMITS\")\n            elif not requests:\n                print(f\"{pod.metadata.namespace}/{pod.metadata.name}/{c.name}: NO REQUESTS\")"
+            }
+          ],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Python Scripting",
+            "Kubernetes client",
+            "Resource Scanners",
+            "cgroups"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "System Design Scenarios (1-7)",
+      "order": 9,
+      "questions": [
+        {
+          "id": 131,
+          "questionNumber": 131,
+          "difficulty": "Hard",
+          "question": "Design a zero-downtime deployment pipeline for a payment service (Apple/PayPal scale).",
+          "answer": "Source: trunk-based dev, feature flags. CI: GitHub Actions + OIDC → build → Trivy scan → push ECR (git SHA tag). Staging: ArgoCD syncs, automated integration + performance tests (Locust). Gate: manual approval + error budget check (>10% remaining). Prod: Argo Rollouts canary (1%→5%→25%→100%), 10min analysis between steps. Rollback: automated on error rate >0.1%. Observability: p99 latency + error rate on Grafana, SLO dashboard. RTO: <2min automated rollback.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "System Design",
+            "Payment Scale",
+            "Argo Rollouts",
+            "OIDC",
+            "SLO"
+          ]
+        },
+        {
+          "id": 132,
+          "questionNumber": 132,
+          "difficulty": "Hard",
+          "question": "Design a multi-region Kubernetes platform for a global SaaS.",
+          "answer": "Regions: 3 (us-east-1, eu-west-1, ap-southeast-1). Each region: EKS cluster, ALB, RDS Aurora Global reader, ElastiCache. Control plane: single ArgoCD hub (us-east-1) managing all clusters via ApplicationSets. Traffic: Route53 latency routing + health checks. Data: Aurora Global (1 writer, 2 readers), DynamoDB Global Tables for session. Secrets: External Secrets Operator + Secrets Manager per region. Failover: Route53 removes unhealthy region in <60s. Deploy: ArgoCD ApplicationSet deploys to all regions simultaneously.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "System Design",
+            "Multi-region EKS",
+            "Aurora Global",
+            "Route53 Latency",
+            "ArgoCD ApplicationSets"
+          ]
+        },
+        {
+          "id": 133,
+          "questionNumber": 133,
+          "difficulty": "Hard",
+          "question": "Design a centralised observability platform for 20 microservices.",
+          "answer": "Metrics: Prometheus per cluster (kube-prometheus-stack) + Thanos for global query and S3 long-term storage. Logs: Fluent Bit DaemonSet → Loki (S3 backend) → Grafana. Traces: OTEL Collector per cluster → Jaeger/Tempo. Dashboards: Grafana with team-specific folders, SLO dashboards per service, exemplars linking metrics to traces. Alerting: PrometheusRule CRDs → Alertmanager → PagerDuty (critical) + Slack (warning). SLO tracking: error budget dashboards per service, burn rate alerts.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "System Design",
+            "Thanos Query",
+            "Loki S3",
+            "OTEL Collector",
+            "Grafana Dashboards"
+          ]
+        },
+        {
+          "id": 134,
+          "questionNumber": 134,
+          "difficulty": "Hard",
+          "question": "Design a secure secrets management system for a Kubernetes platform.",
+          "answer": "Secrets Manager: AWS Secrets Manager per region, auto-rotation enabled. K8s integration: External Secrets Operator (ESO) syncs Secrets Manager → K8s Secrets on schedule. Pod access: volume mount (not env vars) — auto-updates on rotation. IRSA: each service SA has scoped IAM role for its secrets only. Audit: CloudTrail for all Secrets Manager API calls. No secrets in Git: ESO ExternalSecret CRDs committed, not values. Rotation: zero-downtime — ESO updates K8s Secret, volume mount propagates, app re-reads.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "System Design",
+            "Secrets Manager",
+            "External Secrets Operator",
+            "Volume Mount Secrets",
+            "IRSA"
+          ]
+        },
+        {
+          "id": 135,
+          "questionNumber": 135,
+          "difficulty": "Hard",
+          "question": "Design a disaster recovery strategy with RTO 1hr and RPO 15min.",
+          "answer": "Pilot light DR region. Databases: RDS cross-region read replica (promotes in <5min), Aurora Global (failover in <1min). EKS: cluster IaC in Git, rebuild in <15min with Terraform + ArgoCD bootstrap. Data: Velero backups to S3 cross-region every 15min. Route53: health check failover, TTL 60s. Runbook: automated DR drill quarterly — actually fail over, measure RTO/RPO. Game day: intentionally break primary, verify DR works. Document: who does what, in what order, with what commands.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "System Design",
+            "Disaster Recovery",
+            "RTO / RPO",
+            "Velero S3",
+            "Pilot Light"
+          ]
+        },
+        {
+          "id": 136,
+          "questionNumber": 136,
+          "difficulty": "Hard",
+          "question": "Design a cost-optimised EKS platform for a startup (budget conscious).",
+          "answer": "Karpenter: provisions Spot instances for stateless workloads (70% cost reduction). On-demand Savings Plans: baseline 20% capacity for critical services. Node consolidation: Karpenter moves pods to fewer nodes nightly. Right-sizing: VPA recommendations applied weekly. S3 lifecycle: auto-tier old data to IA/Glacier. Reserved RDS: 1yr reserved for production DB. Tagging: all resources tagged, Cost Explorer per team. Monitoring: AWS Cost Anomaly Detection alerts on unexpected spend. Target: 60% cost reduction vs all On-Demand.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "System Design",
+            "Cost Optimization",
+            "Karpenter Spot",
+            "S3 Lifecycle",
+            "Cost Explorer"
+          ]
+        },
+        {
+          "id": 137,
+          "questionNumber": 137,
+          "difficulty": "Hard",
+          "question": "Design an incident response system for a DevOps team.",
+          "answer": "Detection: Prometheus alerts → Alertmanager → PagerDuty (critical) + Slack (warning). On-call: PagerDuty rotation, escalation policy (5min → team → manager). Response: Slack incident channel auto-created by bot. Runbooks: linked in every alert annotation, stored in Confluence. War room: Zoom bridge auto-started for SEV1. Mitigation: feature flags for instant rollback, ArgoCD rollback for deploy issues. Post-incident: blameless postmortem within 48hrs, action items tracked. SLO impact: auto-calculate error budget consumed per incident.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "System Design",
+            "Incident Response",
+            "PagerDuty Escalation",
+            "Blameless Postmortem"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "System Design Scenarios (8-15)",
+      "order": 10,
+      "questions": [
+        {
+          "id": 138,
+          "questionNumber": 138,
+          "difficulty": "Hard",
+          "question": "Design a GitOps platform for a 50-engineer company with multiple teams.",
+          "answer": "Repos: app repos (code) + config repo (K8s manifests, separate). ArgoCD: hub cluster manages all environments. AppProject per team: limits which namespaces/clusters team can deploy to. ApplicationSet: Git generator creates App per service per environment. Promotion: CI updates image tag in config repo → PR → auto-merge for dev, manual for prod. Secrets: ESO + Secrets Manager. RBAC: teams can sync their own apps, platform team manages cluster-level resources. Audit: all deployments traceable to Git commit + GitHub Actions run.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "System Design",
+            "GitOps Platform",
+            "ArgoCD hub",
+            "ApplicationSets",
+            "Config Repo"
+          ]
+        },
+        {
+          "id": 139,
+          "questionNumber": 139,
+          "difficulty": "Hard",
+          "question": "Design a Terraform IaC platform for a multi-account AWS organisation.",
+          "answer": "Structure: monorepo with modules/ + accounts/ directories. Each account: own state in account-specific S3 bucket. Modules: versioned in private Terraform registry. CI: Atlantis (or Terraform Cloud) for plan on PR, apply on merge. OIDC: GitHub Actions assumes Terraform role per account. SCPs: prevent any resource creation outside Terraform (detect-secrets, guardrails). Drift detection: nightly plan run in CI, alert on non-empty plans. Onboarding: Account Factory for Terraform (AFT) automates new account setup. Module testing: Terratest in separate pipeline.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "System Design",
+            "Terraform IaC",
+            "Atlantis CI",
+            "AFT onboarding",
+            "SCPs"
+          ]
+        },
+        {
+          "id": 140,
+          "questionNumber": 140,
+          "difficulty": "Hard",
+          "question": "Design a DevSecOps pipeline that meets PCI-DSS requirements.",
+          "answer": "Code: pre-commit (git-secrets, detect-secrets). PR: Semgrep SAST, dependency check (OWASP). Build: Trivy container scan, SBOM generation (Syft), image signing (Cosign). Registry: ECR with immutable tags, scan on push. Deploy: admission webhook (OPA Gatekeeper) — only signed images from approved registry. Runtime: Falco for anomaly detection. Network: NetworkPolicy default-deny, mTLS (Istio). Audit: CloudTrail all API calls, K8s audit logs → SIEM. Compliance: AWS Config rules for PCI controls. Evidence: automated compliance reports from Config.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "System Design",
+            "PCI-DSS Compliance",
+            "DevSecOps",
+            "Cosign Sign",
+            "OPA Gatekeeper"
+          ]
+        },
+        {
+          "id": 141,
+          "questionNumber": 141,
+          "difficulty": "Hard",
+          "question": "Design a platform for running 500 microservices on Kubernetes.",
+          "answer": "Multi-cluster: services per cluster capped at 100 for blast radius. ArgoCD ApplicationSets: one template, 500 applications. Namespaces: one per team (not per service). ResourceQuota + LimitRange per namespace. NetworkPolicy: default deny, service mesh (Istio) for mTLS and traffic management. Service mesh: Istio with virtual services for traffic splitting, circuit breaking, retries. Observability: per-service SLO dashboards, distributed tracing mandatory. Golden path: standardised Helm chart all services use. Self-service: Internal Developer Portal (Backstage) for provisioning.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "System Design",
+            "500 Microservices",
+            "Istio Mesh",
+            "Backstage Provisioning",
+            "Helm Golden Path"
+          ]
+        },
+        {
+          "id": 142,
+          "questionNumber": 142,
+          "difficulty": "Hard",
+          "question": "Design a high-availability monitoring stack.",
+          "answer": "Prometheus HA: two identical Prometheus instances scraping same targets. Thanos Sidecar: uploads blocks to S3. Thanos Query: deduplicates results from both Prometheus instances. Alertmanager: 3-node cluster with gossip (mesh) deduplication. Grafana: multiple instances behind ALB with shared PostgreSQL for dashboards. Alert routing: PagerDuty + Slack with inhibition rules. Dead Man's Switch: heartbeat to external service. No single point of failure: every component replicated. Backup: Prometheus data in S3, Grafana dashboards in Git.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "System Design",
+            "HA Monitoring",
+            "Thanos Query",
+            "Alertmanager Mesh",
+            "Grafana PostgreSQL"
+          ]
+        },
+        {
+          "id": 143,
+          "questionNumber": 143,
+          "difficulty": "Hard",
+          "question": "How would you migrate a monolith to microservices while maintaining zero downtime?",
+          "answer": "Strangler fig: don't rewrite — extract incrementally. Step 1: put monolith behind API Gateway/ALB. Step 2: identify first service to extract (highest value, loosest coupling). Step 3: build new service alongside monolith. Step 4: route % of traffic to new service (weighted ALB). Step 5: validate, increase %. Step 6: remove monolith code for that feature. Repeat. Database: service owns its data — strangler the DB too (separate schema first, then separate DB). Never big-bang rewrite — too risky.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Monolith Migration",
+            "Strangler Fig",
+            "API Gateway Routing",
+            "Database Decoupling"
+          ]
+        },
+        {
+          "id": 144,
+          "questionNumber": 144,
+          "difficulty": "Hard",
+          "question": "Design a developer self-service platform (Internal Developer Platform).",
+          "answer": "Backstage: service catalogue, template scaffolding, documentation. Workflow: developer creates service from template → GitHub repo created → CI/CD pipeline configured → namespace provisioned → basic monitoring added. Self-service: namespace creation via GitOps PR, not ticket. Paved road: golden path Terraform module for standard service. Constraints: team can choose tech but must use standard observability, logging, secrets. Platform team: provides building blocks, not bottleneck. Measure: developer onboarding time (target: new service to production in <1 day).",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "Internal Developer Platform",
+            "Backstage",
+            "Golden Path",
+            "Onboarding Time"
+          ]
+        },
+        {
+          "id": 145,
+          "questionNumber": 145,
+          "difficulty": "Hard",
+          "question": "Situational: Your company wants 99.99% SLA but current availability is 99.5% — how do you get there?",
+          "answer": "Current: 99.5% = 3.65 days downtime/year. Target: 99.99% = 52 minutes/year. Gap analysis: identify top causes of downtime (use incident data). Typically: deployments (rolling update with PDB), single points of failure (add HA), dependency failures (circuit breakers, retries), slow deploys (faster rollback). Architecture: multi-AZ minimum, multi-region for 99.99%. SLO tracking: error budget alerts at 50% consumed. Chaos engineering: find failures before users do. Incremental: 99.5% → 99.9% → 99.95% → 99.99% — don't jump directly.",
+          "keyPoints": [],
+          "codeBlocks": [],
+          "examples": [],
+          "bestPractices": [],
+          "warnings": [],
+          "commonMistakes": [],
+          "interviewNotes": [],
+          "tags": [
+            "SLA 99.99%",
+            "High Availability",
+            "SLA Gap Analysis",
+            "SLO Alerts",
+            "Chaos Engineering"
+          ]
+        }
+      ]
+    }
+  ]
+}
