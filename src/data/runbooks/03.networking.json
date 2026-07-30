@@ -1,0 +1,402 @@
+{
+  "tool": "networking",
+  "version": "1.0",
+  "description": "Production networking troubleshooting runbook focused on the commands that resolve 90% of day-to-day connectivity, DNS, TLS, and proxy incidents.",
+  "totalCommands": 8,
+  "commands": [
+    {
+      "id": 1,
+      "title": "Show listening sockets and owning processes",
+      "command": "ss -tulnp",
+      "summary": "Lists all TCP and UDP listening sockets together with the process that owns them.",
+      "problem": "Connection refused, port already in use, or a service that claims to be running but is not accepting traffic.",
+      "why_this_command": "Fastest authoritative view of what is actually bound on the host. Replaces the older netstat in modern distributions.",
+      "thinking_process": [
+        "Users report connection refused or a port conflict.",
+        "ss -tulnp shows every listening port and the PID/program.",
+        "I immediately know whether the expected process is listening and on which address."
+      ],
+      "syntax": "ss -tulnp",
+      "examples": [
+        "ss -tulnp",
+        "ss -tulnp | grep 443",
+        "ss -tlnp"
+      ],
+      "expected_output": "Netid State Recv-Q Send-Q Local Address:Port Peer Address:Port Process",
+      "how_to_interpret_output": "Look at Local Address:Port. 0.0.0.0 or * means all interfaces; 127.0.0.1 means localhost only. The Process column gives the binary and PID. Absence of the expected port means the service is not listening.",
+      "real_world_incidents": [
+        "Service bound only to 127.0.0.1 while traffic arrived on the public interface.",
+        "Two processes fighting for the same port after a failed deploy.",
+        "Old process still holding the port after a crash."
+      ],
+      "common_mistakes": [
+        "Running without root/capabilities and missing the process name.",
+        "Looking only at TCP and missing a UDP service.",
+        "Misreading 127.0.0.1 vs 0.0.0.0."
+      ],
+      "what_to_check_before": [
+        "Run as root or with CAP_NET_ADMIN to see process names."
+      ],
+      "what_to_check_after": [
+        "If the port is missing → check service status and logs.",
+        "If the wrong process owns it → stop that process and restart the correct one.",
+        "Confirm with curl or nc from another host."
+      ],
+      "related_commands": ["lsof -i", "netstat -tulnp", "curl", "systemctl status"],
+      "best_practices": [
+        "ss -tulnp is the first command for any 'port in use' or 'connection refused' incident.",
+        "Always verify both the port and the bind address."
+      ],
+      "interview_question": "A service is running according to systemctl but clients get connection refused. What do you check first?",
+      "interview_answer": "ss -tulnp to confirm the process is actually listening and on which address. It is common for a service to be running yet bound only to localhost or a different port.",
+      "importance": 10,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["ports", "listening", "connectivity"]
+    },
+    {
+      "id": 2,
+      "title": "Test HTTP/HTTPS endpoint reachability and response",
+      "command": "curl",
+      "summary": "Performs HTTP requests and surfaces status codes, headers, TLS errors, and body content.",
+      "problem": "Is the service reachable? What status does it return? Is TLS broken? Is a proxy or load balancer interfering?",
+      "why_this_command": "The universal tool for validating application-layer connectivity from the command line. Works for health checks, upstreams, and external endpoints.",
+      "thinking_process": [
+        "Monitoring or users report errors.",
+        "curl -v or curl -I from the same network namespace shows the real response.",
+        "I can distinguish connection refused, TLS problems, 5xx, and timeouts."
+      ],
+      "syntax": "curl [OPTIONS] URL",
+      "examples": [
+        "curl -I https://example.com",
+        "curl -v http://localhost:8080/health",
+        "curl -o /dev/null -s -w '%{http_code}\\n' http://localhost"
+      ],
+      "expected_output": "HTTP status line, headers, and optionally the body or a numeric status code",
+      "how_to_interpret_output": "First look at the status code. Connection refused or timeout means lower-layer failure. SSL errors point to certificate or SNI issues. 5xx means the application or upstream is broken.",
+      "real_world_incidents": [
+        "Health-check endpoint returning 500 after a config change.",
+        "TLS handshake failure caused by an expired certificate.",
+        "Service listening only on localhost while curl was aimed at the public IP."
+      ],
+      "common_mistakes": [
+        "Using -k in production scripts and hiding real certificate problems.",
+        "Not following redirects when the endpoint requires -L.",
+        "Testing from the wrong network namespace (host vs container vs pod)."
+      ],
+      "what_to_check_before": [
+        "Know the expected URL, scheme, and whether TLS is required."
+      ],
+      "what_to_check_after": [
+        "Connection refused → ss -tulnp",
+        "TLS error → check certificate expiry and chain",
+        "5xx → application or reverse-proxy logs"
+      ],
+      "related_commands": ["ss", "openssl s_client", "dig", "wget"],
+      "best_practices": [
+        "Prefer curl -v for interactive debugging and the -w format string for scripting.",
+        "Always test from the same place the real client traffic originates when possible."
+      ],
+      "interview_question": "How do you retrieve only the HTTP status code of an endpoint without printing the body?",
+      "interview_answer": "curl -o /dev/null -s -w '%{http_code}\\n' http://example.com",
+      "importance": 10,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["http", "tls", "health-check", "connectivity"]
+    },
+    {
+      "id": 3,
+      "title": "Resolve DNS names with detailed output",
+      "command": "dig",
+      "summary": "Queries DNS and displays the full answer, authority, and the server that responded.",
+      "problem": "DNS resolution failed, returned the wrong IP, or is timing out. Applications cannot reach dependencies by name.",
+      "why_this_command": "More informative and scriptable than nslookup or host. Shows exactly what the resolver returned and which server answered.",
+      "thinking_process": [
+        "Application logs show 'name or service not known' or connect to an unexpected IP.",
+        "dig tells me whether resolution succeeds, what IP is returned, and which nameserver answered.",
+        "I can also query a specific server to isolate the fault."
+      ],
+      "syntax": "dig [NAME] [TYPE] [@SERVER] [+short]",
+      "examples": [
+        "dig example.com",
+        "dig +short api.internal",
+        "dig @8.8.8.8 example.com"
+      ],
+      "expected_output": "QUESTION, ANSWER, AUTHORITY sections plus the SERVER line at the bottom",
+      "how_to_interpret_output": "Empty ANSWER or SERVFAIL means resolution failure. Compare the returned IP with the expected value. The SERVER line shows which resolver answered; this helps distinguish local vs upstream problems.",
+      "real_world_incidents": [
+        "Stale DNS cache pointing at a decommissioned load balancer.",
+        "CoreDNS or internal DNS outage causing widespread service discovery failure.",
+        "Split-horizon DNS returning different answers inside versus outside the VPC."
+      ],
+      "common_mistakes": [
+        "Not checking /etc/hosts which overrides DNS.",
+        "Querying only the local resolver and missing that the upstream is broken.",
+        "Ignoring TTL and caching behaviour."
+      ],
+      "what_to_check_before": [
+        "Inspect /etc/resolv.conf for the configured nameservers."
+      ],
+      "what_to_check_after": [
+        "If local resolution fails but public DNS works → check the local resolver or network path to it.",
+        "If the wrong IP is returned → examine the zone data or intermediate caches."
+      ],
+      "related_commands": ["nslookup", "host", "getent hosts", "ping"],
+      "best_practices": [
+        "Use dig +short for quick IP lookups and full dig for diagnosis.",
+        "Always test both the application nameserver and a known-good public resolver."
+      ],
+      "interview_question": "How do you determine which DNS server answered a query and what IP was returned?",
+      "interview_answer": "Run dig hostname. The ANSWER section contains the IP and the SERVER line at the bottom shows the resolver that responded.",
+      "importance": 9,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["dns", "resolution", "service-discovery"]
+    },
+    {
+      "id": 4,
+      "title": "Test basic IP reachability",
+      "command": "ping",
+      "summary": "Sends ICMP echo requests to verify host reachability and measure round-trip time.",
+      "problem": "Is the remote host up? Is there basic IP connectivity before debugging ports or applications?",
+      "why_this_command": "Quickest way to rule out complete network isolation or a down host before moving to TCP or application layers.",
+      "thinking_process": [
+        "A service is unreachable.",
+        "Before looking at ports or TLS I confirm the host answers ping.",
+        "If ping fails the problem is routing, firewall, or the host itself."
+      ],
+      "syntax": "ping [-c N] HOST",
+      "examples": [
+        "ping -c 4 8.8.8.8",
+        "ping -c 3 example.com",
+        "ping -c 10 10.0.1.5"
+      ],
+      "expected_output": "Reply lines with RTT or 100% packet loss summary",
+      "how_to_interpret_output": "0% loss and low RTT means basic connectivity is present. 100% loss means the host is down, unreachable, or ICMP is blocked. High latency or jitter points to network congestion or a poor path.",
+      "real_world_incidents": [
+        "Host became unreachable after a route-table or security-group change.",
+        "Intermittent packet loss causing application timeouts.",
+        "DNS resolved correctly but the IP was black-holed."
+      ],
+      "common_mistakes": [
+        "Assuming ping failure always means the host is down (ICMP is frequently blocked).",
+        "Letting ping run forever instead of using -c.",
+        "Pinging a name without first verifying DNS."
+      ],
+      "what_to_check_before": [
+        "Prefer an IP address when testing pure connectivity so DNS is not a confounding factor."
+      ],
+      "what_to_check_after": [
+        "Ping works but TCP fails → check listening ports and firewalls with ss and curl.",
+        "Ping fails → traceroute/mtr or inspect security groups / iptables / routes."
+      ],
+      "related_commands": ["traceroute", "mtr", "curl", "dig"],
+      "best_practices": [
+        "Always limit the number of packets with -c in shared terminals and scripts.",
+        "Remember that many cloud security groups and corporate firewalls drop ICMP."
+      ],
+      "interview_question": "Ping succeeds but a TCP connection to port 80 fails. What are the most likely causes?",
+      "interview_answer": "Nothing is listening on port 80, a firewall is blocking TCP/80, or the service is bound only to localhost.",
+      "importance": 8,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["icmp", "connectivity", "reachability"]
+    },
+    {
+      "id": 5,
+      "title": "Inspect TLS certificate and handshake",
+      "command": "openssl s_client",
+      "summary": "Performs a TLS handshake and prints the certificate chain, validity dates, and negotiated parameters.",
+      "problem": "TLS errors, expired certificates, incomplete chains, or SNI mismatches causing connection failures.",
+      "why_this_command": "The definitive low-level tool for diagnosing certificate and handshake problems that curl may only surface as a generic SSL error.",
+      "thinking_process": [
+        "curl or a browser reports a certificate problem.",
+        "openssl s_client -connect host:443 -servername host shows the exact chain and dates.",
+        "I can see whether the cert is expired, the chain is incomplete, or the wrong certificate is being served."
+      ],
+      "syntax": "openssl s_client -connect HOST:PORT [-servername HOST] [-showcerts]",
+      "examples": [
+        "openssl s_client -connect example.com:443 -servername example.com",
+        "openssl s_client -connect 10.0.1.5:443 -servername api.internal </dev/null",
+        "echo | openssl s_client -connect example.com:443 2>/dev/null | openssl x509 -noout -dates"
+      ],
+      "expected_output": "Certificate chain, subject, issuer, validity dates, and Verify return code",
+      "how_to_interpret_output": "Verify return code 0 means success. Non-zero indicates the problem (expired, self-signed, unable to get local issuer, etc.). Check notBefore/notAfter for expiry. Confirm the subject matches the expected hostname.",
+      "real_world_incidents": [
+        "Certificate expired at midnight and broke all HTTPS traffic.",
+        "Incomplete chain because the intermediate certificate was missing from the server config.",
+        "SNI mismatch after a new virtual host was added."
+      ],
+      "common_mistakes": [
+        "Omitting -servername and receiving the default certificate instead of the name-based one.",
+        "Not piping a quit or using </dev/null and leaving the session open.",
+        "Looking only at the leaf certificate and missing chain issues."
+      ],
+      "what_to_check_before": [
+        "Know the exact hostname and port the client is connecting to."
+      ],
+      "what_to_check_after": [
+        "Expired → renew and reload the service.",
+        "Incomplete chain → install the missing intermediate.",
+        "Wrong certificate → fix the virtual-host or load-balancer configuration."
+      ],
+      "related_commands": ["curl -v", "openssl x509", "ss"],
+      "best_practices": [
+        "Always supply -servername for name-based virtual hosts.",
+        "Automate expiry checks; never rely on manual discovery during an outage."
+      ],
+      "interview_question": "How do you check the expiry date of the certificate presented by a remote HTTPS service?",
+      "interview_answer": "echo | openssl s_client -connect host:443 -servername host 2>/dev/null | openssl x509 -noout -dates",
+      "importance": 8,
+      "frequency": "Weekly",
+      "difficulty": "Medium",
+      "tags": ["tls", "certificates", "https"]
+    },
+    {
+      "id": 6,
+      "title": "Trace the network path to a destination",
+      "command": "traceroute",
+      "summary": "Shows the sequence of routers (hops) between the local host and a destination together with per-hop latency.",
+      "problem": "Traffic is slow, intermittently lost, or reaches the wrong place. Where is the path breaking or degrading?",
+      "why_this_command": "Reveals routing problems, black holes, and high-latency hops that ping alone cannot surface.",
+      "thinking_process": [
+        "Ping shows high latency or loss, or a service is reachable from some networks but not others.",
+        "traceroute maps the path and highlights the hop where problems begin.",
+        "I can then focus investigation on that network segment or provider."
+      ],
+      "syntax": "traceroute [-n] HOST",
+      "examples": [
+        "traceroute example.com",
+        "traceroute -n 8.8.8.8",
+        "traceroute -T -p 443 example.com"
+      ],
+      "expected_output": "Numbered list of hops with IP addresses and three RTT samples each",
+      "how_to_interpret_output": "Look for the first hop that shows * * * (no response) or a sudden jump in latency. That hop or the link to it is usually the problem. Consistent high latency from a certain hop onward indicates congestion or a suboptimal route.",
+      "real_world_incidents": [
+        "Traffic taking a suboptimal path after a BGP change.",
+        "Packet loss starting at a specific ISP hop.",
+        "Internal routing loop visible as repeating addresses."
+      ],
+      "common_mistakes": [
+        "Assuming every * means a hard failure (many routers simply do not respond to the probe type).",
+        "Not using -n and waiting for reverse DNS on every hop.",
+        "Using only UDP probes when a firewall blocks them; TCP probes (-T) are often more reliable."
+      ],
+      "what_to_check_before": [
+        "Confirm basic connectivity with ping if possible."
+      ],
+      "what_to_check_after": [
+        "If the path breaks inside your network → check routes, firewalls, and security groups.",
+        "If the path breaks outside → escalate to the network team or provider with the traceroute output."
+      ],
+      "related_commands": ["ping", "mtr", "ip route", "curl"],
+      "best_practices": [
+        "Prefer mtr when available for a continuous, statistical view.",
+        "Capture traceroute output in incident notes; it is often requested by network teams."
+      ],
+      "interview_question": "Traceroute shows successful hops up to hop 8 and then all asterisks. What does that usually indicate?",
+      "interview_answer": "Either the destination or an intermediate router is dropping the probe packets (common with ICMP/UDP rate limiting or firewalls), or there is a black hole starting at that hop. Further testing with TCP probes or from another source is needed.",
+      "importance": 6,
+      "frequency": "Monthly",
+      "difficulty": "Medium",
+      "tags": ["routing", "path", "latency"]
+    },
+    {
+      "id": 7,
+      "title": "Display and manipulate the routing table",
+      "command": "ip route",
+      "summary": "Shows the kernel routing table and allows inspection of how packets will leave the host for a given destination.",
+      "problem": "Traffic is going out the wrong interface, a route is missing, or a host cannot reach a subnet that should be reachable.",
+      "why_this_command": "Authoritative view of the routes the kernel is actually using. Essential when debugging multi-homed hosts, VPCs, or policy routing.",
+      "thinking_process": [
+        "Packets are not reaching the expected next hop or are leaving via the wrong NIC.",
+        "ip route show gives the full table; ip route get <dst> shows the exact route that will be used.",
+        "I can confirm whether a required route exists and is correct."
+      ],
+      "syntax": "ip route [show] | ip route get ADDRESS",
+      "examples": [
+        "ip route",
+        "ip route get 8.8.8.8",
+        "ip route show table main"
+      ],
+      "expected_output": "destination via gateway dev interface src ... or default via ...",
+      "how_to_interpret_output": "The default route is the most important for general internet access. For a specific destination, ip route get shows the exact path the kernel will take, including the source address and device. Missing or incorrect routes explain many 'no route to host' errors.",
+      "real_world_incidents": [
+        "Missing route to a peered VPC after a Terraform apply.",
+        "Traffic leaving via the wrong interface on a multi-homed bastion.",
+        "Default route pointing at a dead gateway after a network change."
+      ],
+      "common_mistakes": [
+        "Looking only at the default route and missing more specific routes that take precedence.",
+        "Confusing the routing table with firewall rules.",
+        "Not checking policy routing tables when multiple tables are in use."
+      ],
+      "what_to_check_before": [
+        "Know the destination IP or subnet that is failing."
+      ],
+      "what_to_check_after": [
+        "If a route is missing → add it (or fix the configuration management that should have added it).",
+        "If the route looks correct → move on to firewalls, security groups, or the next hop itself."
+      ],
+      "related_commands": ["ip addr", "ping", "traceroute", "iptables / nft"],
+      "best_practices": [
+        "Use ip route get <dst> for a definitive answer on how a packet will be routed.",
+        "Prefer configuration management or cloud route tables over permanent manual ip route add commands."
+      ],
+      "interview_question": "How do you determine which interface and gateway a packet to 10.20.30.40 will use?",
+      "interview_answer": "ip route get 10.20.30.40. The output shows the device, gateway, and source address the kernel will use.",
+      "importance": 7,
+      "frequency": "Weekly",
+      "difficulty": "Medium",
+      "tags": ["routing", "ip", "connectivity"]
+    },
+    {
+      "id": 8,
+      "title": "Show network interfaces and addresses",
+      "command": "ip addr",
+      "summary": "Lists network interfaces, their state, MAC addresses, and assigned IPv4/IPv6 addresses.",
+      "problem": "Is the interface up? Does it have the expected IP? Is there an address conflict or missing secondary IP?",
+      "why_this_command": "Fundamental view of the host's network identity. Required before almost any deeper network diagnosis.",
+      "thinking_process": [
+        "A host is unreachable or appears to have the wrong IP.",
+        "ip addr shows every interface, whether it is UP, and the addresses assigned to it.",
+        "I can confirm the host has the IP that DNS and load balancers expect."
+      ],
+      "syntax": "ip addr [show] [dev IFNAME]",
+      "examples": [
+        "ip addr",
+        "ip addr show dev eth0",
+        "ip -br addr"
+      ],
+      "expected_output": "Interface index, name, state, MTU, MAC, inet/inet6 addresses with scopes",
+      "how_to_interpret_output": "State UP and LOWER_UP means the interface is administratively and physically up. Confirm the inet address matches expectations. Secondary addresses and IPv6 are also visible. A missing or wrong address explains many connectivity failures.",
+      "real_world_incidents": [
+        "Interface left in DOWN state after a cloud metadata or udev problem.",
+        "Missing secondary IP that a service was configured to bind to.",
+        "IP address conflict detected after a clone or snapshot restore."
+      ],
+      "common_mistakes": [
+        "Looking only at eth0 and missing that the address is on a different interface or alias.",
+        "Ignoring the interface state (DOWN vs UP).",
+        "Not noticing that an address is tentative or has a short lifetime (DHCP)."
+      ],
+      "what_to_check_before": [],
+      "what_to_check_after": [
+        "If the interface is DOWN → bring it up or fix the underlying cloud/network config.",
+        "If the address is wrong or missing → correct it via the cloud console, DHCP, or netplan/networkd.",
+        "Then re-test with ping and ss."
+      ],
+      "related_commands": ["ip route", "ss", "ping", "ethtool"],
+      "best_practices": [
+        "Use ip -br addr for a compact overview during incidents.",
+        "Always verify both IPv4 and IPv6 when dual-stack is in use."
+      ],
+      "interview_question": "How do you quickly see all IP addresses assigned to a host in a compact format?",
+      "interview_answer": "ip -br addr or ip addr show",
+      "importance": 7,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["interfaces", "ip", "addressing"]
+    }
+  ]
+}

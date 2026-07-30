@@ -1,0 +1,1473 @@
+{
+  "tool": "linux",
+  "version": "1.0",
+  "description": "Production Linux troubleshooting runbook focused on the commands that resolve 90% of day-to-day outages, performance issues, and on-call incidents.",
+  "totalCommands": 30,
+  "commands": [
+    {
+      "id": 1,
+      "title": "Check system uptime and load averages",
+      "command": "uptime",
+      "summary": "Shows how long the system has been running and the 1/5/15-minute load averages.",
+      "problem": "Is the box overloaded or recently rebooted? Are we under CPU pressure right now?",
+      "why_this_command": "Fastest single-line health check. Load averages tell you whether the system is saturated before you dig into processes or disks.",
+      "thinking_process": [
+        "Production is slow or unresponsive.",
+        "First question: is the machine even healthy or did it just reboot?",
+        "uptime answers both in one glance.",
+        "If load is high, next look at top or ps."
+      ],
+      "syntax": "uptime",
+      "examples": [
+        "uptime",
+        "uptime -p",
+        "cat /proc/loadavg"
+      ],
+      "expected_output": "14:32:01 up 47 days,  3:12,  2 users,  load average: 4.21, 3.87, 3.45",
+      "how_to_interpret_output": "Load average should be compared to number of CPU cores. Load of 4 on a 4-core box is fully utilized. Sudden drop in uptime means a recent reboot or crash.",
+      "real_world_incidents": [
+        "API latency spike – load was 18 on an 8-core instance after a bad deploy.",
+        "Node disappeared from monitoring – uptime showed it rebooted 12 minutes ago.",
+        "Intermittent 502s – load average climbing steadily due to runaway process."
+      ],
+      "common_mistakes": [
+        "Ignoring that load includes I/O wait, not just CPU.",
+        "Comparing load to total cores without knowing the instance type.",
+        "Not checking uptime after a kernel panic or OOM."
+      ],
+      "what_to_check_before": [
+        "Know how many CPU cores the machine has (nproc or lscpu).",
+        "Confirm you are on the correct host."
+      ],
+      "what_to_check_after": [
+        "If load is high → top or ps aux --sort=-%cpu",
+        "If uptime is low → journalctl -b -1 or dmesg for crash reason"
+      ],
+      "related_commands": ["top", "ps", "nproc", "journalctl"],
+      "best_practices": [
+        "Always run uptime as the very first command on a new host during an incident.",
+        "Track load averages in monitoring; treat sustained load > cores as a page."
+      ],
+      "interview_question": "Load average is 12 on a 4-core machine. What does that actually mean and what do you check next?",
+      "interview_answer": "The run queue has 12 runnable or uninterruptible tasks on average. Next I run top or ps to identify the processes consuming CPU or stuck in D state, then check iowait with vmstat or iostat.",
+      "importance": 10,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["load", "health-check", "first-command", "cpu"]
+    },
+    {
+      "id": 2,
+      "title": "Interactive process and resource viewer",
+      "command": "top",
+      "summary": "Live view of CPU, memory, and running processes sorted by resource usage.",
+      "problem": "Something is consuming CPU or memory and I need to identify it quickly.",
+      "why_this_command": "Gives an immediate ranked list of the hungriest processes without needing to remember complex ps flags.",
+      "thinking_process": [
+        "uptime showed high load.",
+        "I need to see which processes are responsible right now.",
+        "top updates live so I can watch the effect of any kill or restart."
+      ],
+      "syntax": "top [-o FIELD] [-p PID]",
+      "examples": [
+        "top",
+        "top -o %MEM",
+        "top -p 1234,5678"
+      ],
+      "expected_output": "Tasks, CPU%, Mem, and a sorted list of processes with PID, USER, %CPU, %MEM, COMMAND",
+      "how_to_interpret_output": "Look at %CPU and %MEM columns. Press 'P' to sort by CPU, 'M' by memory. Watch for processes stuck at 100% or growing RSS.",
+      "real_world_incidents": [
+        "Java process at 400% CPU after GC thrashing.",
+        "Node.js memory leak slowly climbing until OOM.",
+        "Runaway bash loop left by a previous engineer."
+      ],
+      "common_mistakes": [
+        "Killing a process without checking what it is (especially systemd or kubelet).",
+        "Assuming high %CPU is always bad – some batch jobs are expected.",
+        "Not pressing '1' to see per-core utilization."
+      ],
+      "what_to_check_before": [
+        "Confirm you are on the right host.",
+        "Note the load average from uptime."
+      ],
+      "what_to_check_after": [
+        "If a process is the culprit → check its logs or strace it.",
+        "If memory is exhausted → free -h and then investigate the top consumer."
+      ],
+      "related_commands": ["ps", "free", "htop", "kill"],
+      "best_practices": [
+        "Prefer top -o %CPU or %MEM for faster diagnosis.",
+        "Never kill PID 1 or critical system processes without understanding impact."
+      ],
+      "interview_question": "You see a process at 99% CPU in top. What are the safe next steps before killing it?",
+      "interview_answer": "Identify the process name and owner, check its open files and logs, confirm it is not a critical system service, then decide whether to restart the service cleanly or send a graceful signal first.",
+      "importance": 10,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["cpu", "memory", "processes", "live"]
+    },
+    {
+      "id": 3,
+      "title": "List processes with full details",
+      "command": "ps aux",
+      "summary": "Snapshot of every running process with user, CPU, memory, and full command line.",
+      "problem": "I need to find a specific process, its PID, or confirm whether a service is actually running.",
+      "why_this_command": "Unlike top, ps gives a static, scriptable view and shows the complete command line which is critical for identifying containers or long-running jobs.",
+      "thinking_process": [
+        "Service appears down in monitoring.",
+        "systemctl says active but I want to see the actual process.",
+        "ps aux | grep confirms the binary and arguments."
+      ],
+      "syntax": "ps aux [--sort=-%cpu|-rss]",
+      "examples": [
+        "ps aux",
+        "ps aux --sort=-%cpu | head -20",
+        "ps aux | grep -E 'nginx|php-fpm'"
+      ],
+      "expected_output": "USER PID %CPU %MEM VSZ RSS TTY STAT START TIME COMMAND",
+      "how_to_interpret_output": "STAT column: R=running, S=sleeping, D=uninterruptible, Z=zombie. High RSS means memory pressure. Full COMMAND shows arguments and paths.",
+      "real_world_incidents": [
+        "Duplicate processes started by a bad systemd unit.",
+        "Zombie processes accumulating after a parent crashed.",
+        "Wrong binary version still running after a deploy."
+      ],
+      "common_mistakes": [
+        "Using ps -ef and forgetting the full command line is truncated differently.",
+        "Grepping for a process name that matches itself (use grep -v grep or pgrep).",
+        "Assuming a process is healthy just because it exists."
+      ],
+      "what_to_check_before": [
+        "Know the expected process name or user."
+      ],
+      "what_to_check_after": [
+        "If process is missing → systemctl status or check logs.",
+        "If multiple instances → investigate supervision or lock files."
+      ],
+      "related_commands": ["top", "pgrep", "systemctl", "lsof"],
+      "best_practices": [
+        "Always include --sort when hunting resource hogs.",
+        "Prefer pgrep -af for cleaner filtering in scripts."
+      ],
+      "interview_question": "How do you find the process that is listening on port 8080 and what is its full command line?",
+      "interview_answer": "ss -tulnp | grep 8080 or lsof -i :8080 to get the PID, then ps aux | grep <PID> or ps -fp <PID> to see the full command.",
+      "importance": 9,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["processes", "pid", "debugging"]
+    },
+    {
+      "id": 4,
+      "title": "Check free and used memory",
+      "command": "free -h",
+      "summary": "Human-readable view of total, used, free, shared, buff/cache, and available memory.",
+      "problem": "Is the system under memory pressure? Are we about to OOM?",
+      "why_this_command": "Available column is the real number that matters on modern kernels. buff/cache can be reclaimed.",
+      "thinking_process": [
+        "Application is restarting or slow.",
+        "Check if memory is exhausted before blaming the app.",
+        "free -h tells me immediately whether the kernel is reclaiming cache."
+      ],
+      "syntax": "free -h [-s N]",
+      "examples": [
+        "free -h",
+        "free -h -s 5",
+        "free -m"
+      ],
+      "expected_output": "total used free shared buff/cache available",
+      "how_to_interpret_output": "Focus on 'available'. If available is near zero and swap is being used heavily, you are in trouble. High buff/cache is normal and healthy.",
+      "real_world_incidents": [
+        "OOM killer started shooting processes – free showed available near 0.",
+        "Cache was filling disk buffers after a large file copy.",
+        "Container memory limit hit while host still had free RAM."
+      ],
+      "common_mistakes": [
+        "Thinking 'used' means the system is out of memory (ignore buff/cache).",
+        "Not checking swap usage at the same time.",
+        "Forgetting that containers have their own cgroup limits."
+      ],
+      "what_to_check_before": [
+        "Know the instance memory size."
+      ],
+      "what_to_check_after": [
+        "If available is low → top -o %MEM or ps --sort=-rss",
+        "Check dmesg for OOM killer messages."
+      ],
+      "related_commands": ["top", "ps", "vmstat", "dmesg"],
+      "best_practices": [
+        "Always look at the 'available' column, not 'free'.",
+        "Monitor available memory and swap usage together."
+      ],
+      "interview_question": "free shows almost no free memory but plenty of buff/cache. Is the system in danger?",
+      "interview_answer": "Usually no. The kernel can reclaim buff/cache under pressure. The important number is 'available'. If available is still healthy, the system is fine.",
+      "importance": 9,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["memory", "oom", "health-check"]
+    },
+    {
+      "id": 5,
+      "title": "Disk space usage by filesystem",
+      "command": "df -h",
+      "summary": "Shows disk space used and available on every mounted filesystem in human-readable form.",
+      "problem": "Is a disk full? Which mount point is out of space?",
+      "why_this_command": "The first command when you see 'No space left on device' or monitoring alerts on disk usage.",
+      "thinking_process": [
+        "Application cannot write files or logs.",
+        "df -h immediately tells which filesystem is full.",
+        "Then use du to find the large directories."
+      ],
+      "syntax": "df -h [-T] [-i]",
+      "examples": [
+        "df -h",
+        "df -h /var",
+        "df -ih"
+      ],
+      "expected_output": "Filesystem Size Used Avail Use% Mounted on",
+      "how_to_interpret_output": "Look at Use% and Avail. 100% on root or /var is critical. Also check inode usage with -i when files are tiny but numerous.",
+      "real_world_incidents": [
+        "Log directory filled the root filesystem overnight.",
+        "Docker overlay2 consumed all space on /var/lib/docker.",
+        "Inode exhaustion from millions of small temporary files."
+      ],
+      "common_mistakes": [
+        "Only checking size and missing inode exhaustion (df -i).",
+        "Cleaning the wrong filesystem because of bind mounts.",
+        "Not noticing that a full /tmp breaks many services."
+      ],
+      "what_to_check_before": [
+        "Confirm the alert is for this host."
+      ],
+      "what_to_check_after": [
+        "If a mount is full → du -sh /* or du -x to stay on the same filesystem.",
+        "Check for deleted but still open files with lsof +L1."
+      ],
+      "related_commands": ["du", "lsof", "find", "ncdu"],
+      "best_practices": [
+        "Always run both df -h and df -ih during disk incidents.",
+        "Set alerts at 80% and 90%, never wait for 100%."
+      ],
+      "interview_question": "df shows 100% on / but du -sh /* only accounts for 60%. What is happening?",
+      "interview_answer": "Files have been deleted but are still held open by a process. Use lsof +L1 or lsof | grep deleted to find them, then restart the holding process to release the space.",
+      "importance": 10,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["disk", "filesystem", "space"]
+    },
+    {
+      "id": 6,
+      "title": "Find large directories and files",
+      "command": "du -sh",
+      "summary": "Summarizes disk usage of directories in human-readable sizes.",
+      "problem": "A filesystem is full and I need to locate the largest consumers quickly.",
+      "why_this_command": "df tells you which mount is full; du tells you where the space went inside it.",
+      "thinking_process": [
+        "df -h showed /var at 100%.",
+        "I need to know whether it is logs, docker, or application data.",
+        "du -sh /var/* gives the answer in seconds."
+      ],
+      "syntax": "du -sh [DIR] [--max-depth=N]",
+      "examples": [
+        "du -sh /var/*",
+        "du -sh --max-depth=1 /var",
+        "du -ah /var/log | sort -rh | head -20"
+      ],
+      "expected_output": "4.2G\t/var/log\n12G\t/var/lib/docker",
+      "how_to_interpret_output": "Sort descending to surface the biggest directories. Watch for unexpectedly large log or tmp directories.",
+      "real_world_incidents": [
+        "Old rotated logs never cleaned up.",
+        "Docker images and containers left after failed deploys.",
+        "Application writing multi-GB core dumps."
+      ],
+      "common_mistakes": [
+        "Running du on a huge tree without --max-depth and waiting forever.",
+        "Not using -x to stay on the same filesystem when bind mounts exist.",
+        "Deleting files that are still open."
+      ],
+      "what_to_check_before": [
+        "Know which mount is full from df -h."
+      ],
+      "what_to_check_after": [
+        "Once the large directory is identified, dig one level deeper or use find for specific file patterns.",
+        "Verify space is actually released after cleanup."
+      ],
+      "related_commands": ["df", "find", "lsof", "ncdu"],
+      "best_practices": [
+        "Start with du -sh --max-depth=1 and recurse only into the largest entries.",
+        "Prefer ncdu for interactive exploration when available."
+      ],
+      "interview_question": "How do you quickly find the 10 largest directories under /var without waiting for a full recursive scan?",
+      "interview_answer": "du -sh --max-depth=1 /var/* | sort -rh | head -10, then repeat on the largest subdirectory.",
+      "importance": 9,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["disk", "cleanup", "investigation"]
+    },
+    {
+      "id": 7,
+      "title": "Check systemd service status",
+      "command": "systemctl status",
+      "summary": "Shows whether a service is active, its recent logs, and the main PID.",
+      "problem": "A service is not responding. Is it running, failed, or stuck activating?",
+      "why_this_command": "The single most useful command for any systemd-managed service. Gives state, cgroup, and last log lines in one place.",
+      "thinking_process": [
+        "Monitoring says the service is down.",
+        "systemctl status tells me the exact state and the last error messages.",
+        "From there I decide to restart, look at full logs, or fix configuration."
+      ],
+      "syntax": "systemctl status [UNIT]",
+      "examples": [
+        "systemctl status nginx",
+        "systemctl status sshd",
+        "systemctl status docker"
+      ],
+      "expected_output": "Active: active (running) since ...; Main PID: ...; recent journal lines",
+      "how_to_interpret_output": "Look for Active: state. failed, activating, or inactive are problems. The journal snippet often contains the exact error.",
+      "real_world_incidents": [
+        "nginx failed to start because of a syntax error in a new config.",
+        "Application service stayed in activating state due to a blocking ExecStartPre.",
+        "Service crashed and systemd did not restart it because of Restart= settings."
+      ],
+      "common_mistakes": [
+        "Restarting without reading the status output first.",
+        "Assuming 'active' means the application is healthy (it only means the process is running).",
+        "Forgetting to check the full journal with journalctl -u."
+      ],
+      "what_to_check_before": [
+        "Know the exact unit name (systemctl list-units | grep ...)."
+      ],
+      "what_to_check_after": [
+        "If failed → journalctl -u <unit> -xe or -f",
+        "If running but unhealthy → check application logs or ports."
+      ],
+      "related_commands": ["journalctl", "systemctl restart", "systemctl cat"],
+      "best_practices": [
+        "Always run status before any restart or stop.",
+        "Read the recent log lines that status prints; they often contain the root cause."
+      ],
+      "interview_question": "systemctl status shows Active: failed. What is your immediate next command?",
+      "interview_answer": "journalctl -u <service> -xe or journalctl -u <service> --no-pager -n 50 to see the full failure reason.",
+      "importance": 10,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["systemd", "services", "status"]
+    },
+    {
+      "id": 8,
+      "title": "Restart a systemd service",
+      "command": "systemctl restart",
+      "summary": "Stops and then starts a service, applying any configuration changes.",
+      "problem": "Service is in a bad state or configuration was changed and needs to be reloaded with a full restart.",
+      "why_this_command": "Clean way to bounce a service under systemd. Preferable to kill -9 in almost all cases.",
+      "thinking_process": [
+        "Status showed the service is failed or hung.",
+        "I have fixed the underlying issue (config, disk, etc.).",
+        "restart is the controlled way to bring it back."
+      ],
+      "syntax": "systemctl restart UNIT",
+      "examples": [
+        "systemctl restart nginx",
+        "systemctl restart php-fpm",
+        "systemctl restart myapp.service"
+      ],
+      "expected_output": "No output on success. Check status afterwards.",
+      "how_to_interpret_output": "Silent success. Immediately run systemctl status to confirm it reached active (running).",
+      "real_world_incidents": [
+        "After fixing a full disk, restarting the logging service.",
+        "Applying a new nginx config that required a full restart instead of reload.",
+        "Clearing a stuck state in a long-running worker."
+      ],
+      "common_mistakes": [
+        "Restarting without checking status or logs first.",
+        "Restarting a service that is intentionally stopped or masked.",
+        "Using restart when reload would have been sufficient and zero-downtime."
+      ],
+      "what_to_check_before": [
+        "systemctl status to understand current state.",
+        "Confirm the change you made is correct."
+      ],
+      "what_to_check_after": [
+        "systemctl status",
+        "Check application health endpoint or logs.",
+        "Verify listening ports with ss -tuln."
+      ],
+      "related_commands": ["systemctl status", "systemctl reload", "journalctl"],
+      "best_practices": [
+        "Prefer systemctl reload when the service supports it.",
+        "Always verify with status and a health check after restart."
+      ],
+      "interview_question": "When would you choose systemctl reload over systemctl restart?",
+      "interview_answer": "When the service supports graceful reload of configuration without dropping connections (nginx, haproxy, etc.). Restart kills the process and causes brief downtime.",
+      "importance": 9,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["systemd", "services", "recovery"]
+    },
+    {
+      "id": 9,
+      "title": "View service logs with journalctl",
+      "command": "journalctl -u",
+      "summary": "Fetches logs for a specific systemd unit from the journal.",
+      "problem": "Service failed or is misbehaving and I need the exact error messages.",
+      "why_this_command": "Modern systems send stdout/stderr of services to the journal. This is the authoritative place to look.",
+      "thinking_process": [
+        "systemctl status showed a failure and a short log snippet.",
+        "I need the full context or to follow live logs.",
+        "journalctl -u <unit> -f or -xe gives me everything."
+      ],
+      "syntax": "journalctl -u UNIT [-f] [-xe] [-n N] --since '...' ",
+      "examples": [
+        "journalctl -u nginx -f",
+        "journalctl -u myapp -xe",
+        "journalctl -u docker --since '10 min ago'"
+      ],
+      "expected_output": "Timestamp hostname program[pid]: log message",
+      "how_to_interpret_output": "Look for ERROR, FATAL, exception stack traces, or exit codes. The -xe flag highlights the most recent priority errors.",
+      "real_world_incidents": [
+        "Application crashed on startup due to missing environment variable.",
+        "Permission denied writing to a directory after a package update.",
+        "Database connection refused after network policy change."
+      ],
+      "common_mistakes": [
+        "Forgetting -u and getting the entire system journal.",
+        "Not using --no-pager when piping or in scripts.",
+        "Looking only at the last few lines when the real error happened earlier."
+      ],
+      "what_to_check_before": [
+        "Know the exact unit name."
+      ],
+      "what_to_check_after": [
+        "If the error is clear → fix the root cause and restart.",
+        "If still unclear → increase log level or check application-specific log files."
+      ],
+      "related_commands": ["systemctl status", "tail", "grep"],
+      "best_practices": [
+        "Use -f during live incidents.",
+        "Use --since and --until to bound the time window on long-running hosts."
+      ],
+      "interview_question": "How do you get the last 100 lines of a service’s logs and follow new ones?",
+      "interview_answer": "journalctl -u <service> -n 100 -f",
+      "importance": 10,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["logs", "systemd", "debugging"]
+    },
+    {
+      "id": 10,
+      "title": "Follow a log file in real time",
+      "command": "tail -f",
+      "summary": "Continuously outputs new lines appended to a file.",
+      "problem": "I need to watch application or system logs live while reproducing an issue.",
+      "why_this_command": "Classic and universal. Works on any text log file even when journald is not used.",
+      "thinking_process": [
+        "Service is running but returning errors.",
+        "I need to see the log lines as requests come in.",
+        "tail -f on the application log gives immediate feedback."
+      ],
+      "syntax": "tail -f FILE [-n N]",
+      "examples": [
+        "tail -f /var/log/nginx/error.log",
+        "tail -f /var/log/syslog",
+        "tail -n 100 -f /var/log/myapp/app.log"
+      ],
+      "expected_output": "Live stream of new log lines as they are written.",
+      "how_to_interpret_output": "Correlate timestamps with the actions you are performing. Watch for repeating error patterns or sudden silence.",
+      "real_world_incidents": [
+        "Watching nginx error log while testing a new upstream.",
+        "Following application logs during a canary deploy.",
+        "Observing authentication failures in real time."
+      ],
+      "common_mistakes": [
+        "Tailing the wrong file (access vs error log).",
+        "Forgetting that some applications buffer logs and lines appear late.",
+        "Leaving tail -f running and filling your terminal scrollback."
+      ],
+      "what_to_check_before": [
+        "Confirm the log file path and that the process is writing to it."
+      ],
+      "what_to_check_after": [
+        "Once the error is identified, stop the tail and investigate the root cause.",
+        "Consider structured logging or journald for better querying."
+      ],
+      "related_commands": ["journalctl", "less +F", "grep"],
+      "best_practices": [
+        "Use tail -n 50 -f to get recent context first.",
+        "Prefer journalctl -f when the service is under systemd."
+      ],
+      "interview_question": "How do you follow two log files at the same time?",
+      "interview_answer": "tail -f file1 file2, or use multitail if available. Alternatively run two terminals or use journalctl with multiple -u flags.",
+      "importance": 8,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["logs", "live", "debugging"]
+    },
+    {
+      "id": 11,
+      "title": "Search files for patterns",
+      "command": "grep",
+      "summary": "Finds lines matching a pattern in files or streams.",
+      "problem": "I need to locate an error message, configuration value, or occurrence of a string across logs or configs.",
+      "why_this_command": "The fundamental search tool. Almost every investigation eventually needs grep.",
+      "thinking_process": [
+        "I have a log file or a directory of configs.",
+        "I need to find every occurrence of an error code or hostname.",
+        "grep -r or grep with context flags gets me there fast."
+      ],
+      "syntax": "grep [OPTIONS] PATTERN [FILE...]",
+      "examples": [
+        "grep -i error /var/log/myapp.log",
+        "grep -rn 'listen' /etc/nginx/",
+        "grep -A5 -B5 'OutOfMemory' /var/log/app.log"
+      ],
+      "expected_output": "Matching lines, optionally with filename and line number.",
+      "how_to_interpret_output": "Read surrounding context. Multiple matches may indicate a systemic issue rather than a one-off.",
+      "real_world_incidents": [
+        "Finding the exact timestamp of the first 500 error.",
+        "Locating a misconfigured upstream in a large nginx conf.d directory.",
+        "Searching for a leaked secret string across the filesystem."
+      ],
+      "common_mistakes": [
+        "Forgetting -i for case-insensitive search.",
+        "Using grep on binary files without -a or --binary-files=text.",
+        "Not limiting recursion depth on large trees."
+      ],
+      "what_to_check_before": [
+        "Know roughly where the data lives."
+      ],
+      "what_to_check_after": [
+        "If matches are found, examine the full context with less or journalctl.",
+        "Pipe to wc -l to count occurrences."
+      ],
+      "related_commands": ["rg", "find", "awk", "journalctl"],
+      "best_practices": [
+        "Prefer ripgrep (rg) when available for speed.",
+        "Always use -n when you need to jump to the line later."
+      ],
+      "interview_question": "How do you search recursively for a string but exclude .git and node_modules directories?",
+      "interview_answer": "grep -rn --exclude-dir={.git,node_modules} 'pattern' . or use rg which respects .gitignore by default.",
+      "importance": 9,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["search", "logs", "config"]
+    },
+    {
+      "id": 12,
+      "title": "Find files by name or attributes",
+      "command": "find",
+      "summary": "Locates files and directories based on name, size, time, or other criteria.",
+      "problem": "I need to locate a specific file, find large files, or clean up old temporary files.",
+      "why_this_command": "When you do not know the exact path or need to select files by size or age, find is the tool.",
+      "thinking_process": [
+        "Disk is full or a config file is missing.",
+        "I need to search the filesystem by name or size.",
+        "find with -name, -size, or -mtime solves it."
+      ],
+      "syntax": "find PATH [EXPRESSION]",
+      "examples": [
+        "find / -name 'nginx.conf' 2>/dev/null",
+        "find /var -type f -size +100M",
+        "find /tmp -mtime +7 -delete"
+      ],
+      "expected_output": "List of matching paths.",
+      "how_to_interpret_output": "Verify the paths make sense before acting on them. Redirect stderr to avoid permission noise.",
+      "real_world_incidents": [
+        "Locating a lost configuration file after a package upgrade.",
+        "Finding all core dumps larger than 1 GB.",
+        "Cleaning temporary files older than 7 days."
+      ],
+      "common_mistakes": [
+        "Running find / without limiting scope and overloading the system.",
+        "Using -delete without a dry-run first.",
+        "Forgetting 2>/dev/null and drowning in permission denied messages."
+      ],
+      "what_to_check_before": [
+        "Narrow the starting path as much as possible."
+      ],
+      "what_to_check_after": [
+        "Confirm the found files are the ones you intended before deleting or modifying."
+      ],
+      "related_commands": ["du", "locate", "grep", "rm"],
+      "best_practices": [
+        "Always test with -print before -delete.",
+        "Use -xdev to stay on the same filesystem when cleaning space."
+      ],
+      "interview_question": "How do you find all files larger than 500 MB under /var and sort them by size?",
+      "interview_answer": "find /var -type f -size +500M -exec ls -lh {} + | sort -k5 -h or use find ... -printf '%s %p\\n' | sort -n",
+      "importance": 8,
+      "frequency": "Weekly",
+      "difficulty": "Medium",
+      "tags": ["files", "search", "cleanup"]
+    },
+    {
+      "id": 13,
+      "title": "List open files and network connections by process",
+      "command": "lsof",
+      "summary": "Lists files, directories, and network sockets opened by processes.",
+      "problem": "Which process is holding a file or listening on a port? Which files are deleted but still open?",
+      "why_this_command": "The definitive way to map ports to PIDs and to find deleted-but-open files that still consume disk space.",
+      "thinking_process": [
+        "Port is in use or disk space not released after deletion.",
+        "lsof -i :port or lsof +L1 gives the answer.",
+        "Then I can decide to kill or restart the holder."
+      ],
+      "syntax": "lsof [-i :PORT] [+L1] [-p PID]",
+      "examples": [
+        "lsof -i :80",
+        "lsof +L1",
+        "lsof -p 1234"
+      ],
+      "expected_output": "COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME",
+      "how_to_interpret_output": "For network: look at NAME column for *:port. For deleted files: look for (deleted) in the NAME and large SIZE.",
+      "real_world_incidents": [
+        "Identifying which process was still holding a deleted 10 GB log file.",
+        "Finding the process bound to port 8080 after a failed deploy.",
+        "Discovering a leftover process from a previous container run."
+      ],
+      "common_mistakes": [
+        "Running lsof without filters on a busy system (it can be slow).",
+        "Misreading the FD column.",
+        "Not realizing that deleted open files only release space when the process closes them."
+      ],
+      "what_to_check_before": [
+        "Have a specific port, PID, or suspicion of deleted files."
+      ],
+      "what_to_check_after": [
+        "Once the process is identified, decide whether to restart it cleanly or kill it.",
+        "Verify space is released with df after the process exits."
+      ],
+      "related_commands": ["ss", "ps", "fuser", "df"],
+      "best_practices": [
+        "Use lsof -iTCP -sTCP:LISTEN for a clean list of listening ports.",
+        "Prefer ss -tulnp for pure network questions when possible (faster)."
+      ],
+      "interview_question": "Disk space did not free after deleting a large log file. How do you find the process still holding it?",
+      "interview_answer": "lsof +L1 or lsof | grep deleted. Then restart or kill the process that has the file open.",
+      "importance": 9,
+      "frequency": "Weekly",
+      "difficulty": "Medium",
+      "tags": ["ports", "files", "debugging", "disk"]
+    },
+    {
+      "id": 14,
+      "title": "Show listening ports and processes",
+      "command": "ss -tulnp",
+      "summary": "Displays TCP/UDP listening sockets with process information.",
+      "problem": "What is listening on a given port? Is my service actually bound?",
+      "why_this_command": "Modern replacement for netstat. Fast and shows the PID/program name.",
+      "thinking_process": [
+        "Connection refused or port already in use.",
+        "ss -tulnp tells me exactly which process owns the port.",
+        "From there I can stop the conflicting process or fix the config."
+      ],
+      "syntax": "ss -tulnp",
+      "examples": [
+        "ss -tulnp",
+        "ss -tulnp | grep 443",
+        "ss -tlnp"
+      ],
+      "expected_output": "Netid State Local Address:Port Peer Address:Port Process",
+      "how_to_interpret_output": "Look for the Local Address:Port and the users:((\"program\",pid=...)) field. *:port means listening on all interfaces.",
+      "real_world_incidents": [
+        "Two services configured to use the same port.",
+        "Service claimed to be running but was not listening.",
+        "Leftover process from a previous deployment still bound to the port."
+      ],
+      "common_mistakes": [
+        "Forgetting -p and not seeing the process name (requires root).",
+        "Looking only at TCP and missing UDP services.",
+        "Misreading 127.0.0.1 vs 0.0.0.0 binding."
+      ],
+      "what_to_check_before": [
+        "Run as root or with sufficient capabilities to see process names."
+      ],
+      "what_to_check_after": [
+        "If the expected process is missing → check service status and logs.",
+        "If wrong process is bound → stop it and restart the correct one."
+      ],
+      "related_commands": ["lsof", "netstat", "systemctl", "curl"],
+      "best_practices": [
+        "ss -tulnp is the default first command for any 'port in use' or 'connection refused' issue.",
+        "Combine with curl -v localhost:port for a quick connectivity test."
+      ],
+      "interview_question": "How do you find which process is listening on port 5432?",
+      "interview_answer": "ss -tulnp | grep 5432 or lsof -i :5432",
+      "importance": 9,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["network", "ports", "listening"]
+    },
+    {
+      "id": 15,
+      "title": "Test HTTP connectivity and headers",
+      "command": "curl",
+      "summary": "Transfers data from or to a server; essential for testing HTTP endpoints.",
+      "problem": "Is the service reachable? What status code and headers does it return?",
+      "why_this_command": "The universal tool for verifying HTTP health from the command line without a browser.",
+      "thinking_process": [
+        "Service should be up but users report errors.",
+        "curl -v or curl -I from the host or another machine tells me the real response.",
+        "I can also test upstreams, health checks, and TLS."
+      ],
+      "syntax": "curl [OPTIONS] URL",
+      "examples": [
+        "curl -I https://example.com",
+        "curl -v http://localhost:8080/health",
+        "curl -o /dev/null -s -w '%{http_code}' http://localhost"
+      ],
+      "expected_output": "HTTP status line, headers, and optionally body.",
+      "how_to_interpret_output": "Look at the HTTP status code first. 200 is good, 5xx means server error, connection refused means nothing is listening.",
+      "real_world_incidents": [
+        "Health check endpoint returning 500 after a config change.",
+        "TLS certificate expired – curl showed the SSL error.",
+        "Service listening only on 127.0.0.1 while curl was sent to the public IP."
+      ],
+      "common_mistakes": [
+        "Forgetting -k when testing with self-signed certs (or worse, using -k in production scripts).",
+        "Not following redirects with -L when needed.",
+        "Assuming a 200 from localhost means the service is reachable externally."
+      ],
+      "what_to_check_before": [
+        "Know the expected URL and whether TLS is involved."
+      ],
+      "what_to_check_after": [
+        "If connection refused → ss -tulnp",
+        "If 5xx → application or proxy logs",
+        "If TLS error → check certificate expiry and chain."
+      ],
+      "related_commands": ["ss", "openssl", "wget", "httpie"],
+      "best_practices": [
+        "Use curl -v for debugging and curl -s -o /dev/null -w for scripting.",
+        "Always test from the same network namespace as the client when possible."
+      ],
+      "interview_question": "How do you check only the HTTP status code of an endpoint without downloading the body?",
+      "interview_answer": "curl -o /dev/null -s -w '%{http_code}\\n' http://example.com",
+      "importance": 9,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["http", "connectivity", "health-check"]
+    },
+    {
+      "id": 16,
+      "title": "Test basic network reachability",
+      "command": "ping",
+      "summary": "Sends ICMP echo requests to test whether a host is reachable.",
+      "problem": "Is the remote host up and is there basic IP connectivity?",
+      "why_this_command": "Fastest way to rule out complete network or host-down issues before debugging application layers.",
+      "thinking_process": [
+        "Service is unreachable.",
+        "Before looking at ports or application, confirm the host answers ping.",
+        "If ping fails, the problem is network or the host is down."
+      ],
+      "syntax": "ping [-c N] HOST",
+      "examples": [
+        "ping -c 4 8.8.8.8",
+        "ping -c 3 example.com",
+        "ping -c 10 10.0.1.5"
+      ],
+      "expected_output": "Reply packets with RTT, or 100% packet loss.",
+      "how_to_interpret_output": "0% loss and low RTT means basic connectivity is fine. 100% loss means routing, firewall, or host is down. High RTT or jitter indicates network problems.",
+      "real_world_incidents": [
+        "Host unreachable after a VPC route table change.",
+        "Intermittent packet loss causing application timeouts.",
+        "DNS resolved but the IP was blackholed."
+      ],
+      "common_mistakes": [
+        "Assuming ping failure always means the host is down (ICMP may be blocked).",
+        "Not using -c and letting ping run forever.",
+        "Pinging a hostname without verifying DNS first."
+      ],
+      "what_to_check_before": [
+        "Prefer IP addresses when testing pure connectivity to avoid DNS confusion."
+      ],
+      "what_to_check_after": [
+        "If ping works but TCP fails → check ports and firewalls with ss/curl.",
+        "If ping fails → traceroute or check security groups / iptables."
+      ],
+      "related_commands": ["traceroute", "mtr", "curl", "dig"],
+      "best_practices": [
+        "Always limit with -c in scripts and shared terminals.",
+        "Remember that many cloud security groups block ICMP by default."
+      ],
+      "interview_question": "Ping works but curl to port 80 fails. What are the most likely causes?",
+      "interview_answer": "Nothing is listening on port 80, a firewall is blocking TCP/80, or the service is bound only to localhost.",
+      "importance": 7,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["network", "connectivity", "icmp"]
+    },
+    {
+      "id": 17,
+      "title": "Resolve DNS names",
+      "command": "dig",
+      "summary": "Queries DNS servers and displays detailed resolution information.",
+      "problem": "Is DNS resolution working? What IP does a name resolve to? Is the TTL or authority correct?",
+      "why_this_command": "More informative than nslookup or host. Shows the full answer section and the server that responded.",
+      "thinking_process": [
+        "Application cannot reach a dependent service by name.",
+        "dig tells me whether DNS is broken, returning the wrong IP, or timing out.",
+        "I can also query specific nameservers."
+      ],
+      "syntax": "dig [NAME] [TYPE] [@SERVER]",
+      "examples": [
+        "dig example.com",
+        "dig +short example.com",
+        "dig @8.8.8.8 api.internal"
+      ],
+      "expected_output": "QUESTION, ANSWER, AUTHORITY, ADDITIONAL sections with TTLs and IPs.",
+      "how_to_interpret_output": "Look at the ANSWER section. Empty answer or SERVFAIL means resolution failure. Compare the IP with what you expect.",
+      "real_world_incidents": [
+        "Stale DNS cache pointing to an old load balancer IP.",
+        "Internal DNS zone missing after a CoreDNS crash.",
+        "Split-horizon DNS returning different answers inside vs outside the VPC."
+      ],
+      "common_mistakes": [
+        "Using dig without +short and drowning in output.",
+        "Not specifying a nameserver when testing a specific DNS server.",
+        "Forgetting that local /etc/hosts overrides DNS."
+      ],
+      "what_to_check_before": [
+        "Check /etc/resolv.conf for the configured nameservers."
+      ],
+      "what_to_check_after": [
+        "If resolution fails → check resolv.conf, network connectivity to the DNS server, and DNS server logs.",
+        "If wrong IP → check the zone data or caching resolvers."
+      ],
+      "related_commands": ["nslookup", "host", "getent", "ping"],
+      "best_practices": [
+        "Use dig +short for quick IP lookups.",
+        "Test both the application nameserver and a public one (8.8.8.8) to isolate the problem."
+      ],
+      "interview_question": "How do you check what IP a hostname resolves to and which DNS server answered?",
+      "interview_answer": "dig hostname. The SERVER line at the bottom shows which nameserver responded, and the ANSWER section shows the IP.",
+      "importance": 8,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["dns", "network", "resolution"]
+    },
+    {
+      "id": 18,
+      "title": "View kernel ring buffer messages",
+      "command": "dmesg",
+      "summary": "Prints messages from the kernel ring buffer (hardware, drivers, OOM, etc.).",
+      "problem": "Did the kernel kill a process? Was there a hardware or driver error? Why did the system reboot?",
+      "why_this_command": "The place where OOM killer, disk errors, and many hardware problems surface.",
+      "thinking_process": [
+        "Process disappeared or system became unstable.",
+        "dmesg | tail or dmesg -T shows recent kernel events.",
+        "OOM killer messages or I/O errors are often here."
+      ],
+      "syntax": "dmesg [-T] [-l err,warn] | tail",
+      "examples": [
+        "dmesg | tail -50",
+        "dmesg -T | grep -i oom",
+        "dmesg -l err,warn"
+      ],
+      "expected_output": "Kernel log lines with timestamps (when -T is used).",
+      "how_to_interpret_output": "Look for 'Out of memory: Kill process', disk I/O errors, or segfaults. These are high-signal events.",
+      "real_world_incidents": [
+        "OOM killer terminated the Java process – clear message in dmesg.",
+        "Disk controller errors preceding a filesystem remount read-only.",
+        "NMI watchdog detected a hard lockup."
+      ],
+      "common_mistakes": [
+        "Not using -T and having to decode cryptic timestamps.",
+        "Only looking at the end when the important message scrolled out of the ring buffer.",
+        "Ignoring repeated I/O errors that indicate failing hardware."
+      ],
+      "what_to_check_before": [
+        "Prefer journalctl -k on systemd systems for persistent kernel logs."
+      ],
+      "what_to_check_after": [
+        "If OOM → free -h and investigate the memory hog.",
+        "If disk errors → check smartctl and consider replacing the disk."
+      ],
+      "related_commands": ["journalctl -k", "free", "smartctl"],
+      "best_practices": [
+        "dmesg -T | grep -iE 'oom|error|fail|kill' is a quick filter during incidents.",
+        "On modern systems prefer journalctl -k -b for the current boot."
+      ],
+      "interview_question": "A process vanished without any application log. Where do you look first?",
+      "interview_answer": "dmesg or journalctl -k for OOM killer messages, and also check the service’s journal for exit signals.",
+      "importance": 8,
+      "frequency": "Weekly",
+      "difficulty": "Medium",
+      "tags": ["kernel", "oom", "hardware"]
+    },
+    {
+      "id": 19,
+      "title": "Send a signal to a process",
+      "command": "kill",
+      "summary": "Sends a signal (default TERM) to a process by PID.",
+      "problem": "A process is hung, runaway, or needs to be gracefully stopped.",
+      "why_this_command": "Controlled way to request termination. Always prefer SIGTERM before SIGKILL.",
+      "thinking_process": [
+        "Process is stuck and not responding to normal stop commands.",
+        "I have the PID from ps or top.",
+        "kill PID first, wait, then kill -9 only if necessary."
+      ],
+      "syntax": "kill [-SIGNAL] PID",
+      "examples": [
+        "kill 1234",
+        "kill -TERM 1234",
+        "kill -9 1234"
+      ],
+      "expected_output": "No output on success. 'No such process' if the PID is already gone.",
+      "how_to_interpret_output": "Silent success means the signal was sent. Confirm with ps that the process actually exited.",
+      "real_world_incidents": [
+        "Gracefully stopping a stuck worker before it was force-killed.",
+        "Cleaning up a process that survived a failed deployment.",
+        "Stopping a runaway script that was filling the disk."
+      ],
+      "common_mistakes": [
+        "Jumping straight to kill -9 and leaving resources in an inconsistent state.",
+        "Killing the wrong PID (especially after the process table has changed).",
+        "Killing PID 1 or critical system processes."
+      ],
+      "what_to_check_before": [
+        "Double-check the PID with ps -p PID -o pid,cmd",
+        "Prefer systemctl stop when the process is managed by systemd."
+      ],
+      "what_to_check_after": [
+        "ps -p PID to confirm it is gone.",
+        "Check logs for clean shutdown messages.",
+        "Verify that any held resources (ports, files) are released."
+      ],
+      "related_commands": ["killall", "pkill", "systemctl", "ps"],
+      "best_practices": [
+        "Always try SIGTERM (default) and wait a few seconds before SIGKILL.",
+        "Use systemctl stop/restart whenever the unit is under systemd."
+      ],
+      "interview_question": "What is the difference between kill and kill -9, and when is each appropriate?",
+      "interview_answer": "kill sends SIGTERM, allowing the process to clean up. kill -9 sends SIGKILL, which cannot be caught and forces immediate termination. Use -9 only when the process does not respond to TERM.",
+      "importance": 8,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["processes", "signals", "recovery"]
+    },
+    {
+      "id": 20,
+      "title": "Change file permissions",
+      "command": "chmod",
+      "summary": "Modifies the read/write/execute permissions of files and directories.",
+      "problem": "Permission denied errors when a process or user cannot access a file or directory.",
+      "why_this_command": "The standard way to fix mode bits after a deploy or when a service runs as a different user.",
+      "thinking_process": [
+        "Application log shows permission denied.",
+        "ls -l shows the current mode and ownership.",
+        "chmod (and possibly chown) corrects it."
+      ],
+      "syntax": "chmod [OPTIONS] MODE FILE",
+      "examples": [
+        "chmod 644 /etc/myapp/config.yml",
+        "chmod 755 /opt/myapp/bin/start.sh",
+        "chmod -R u+rwX,g+rX /var/www"
+      ],
+      "expected_output": "No output on success.",
+      "how_to_interpret_output": "Silent success. Verify with ls -l afterwards.",
+      "real_world_incidents": [
+        "Web server could not read static files after a rsync that preserved wrong modes.",
+        "Script failed because it lost the execute bit.",
+        "Log directory not writable by the application user."
+      ],
+      "common_mistakes": [
+        "Using 777 out of frustration (security risk).",
+        "Forgetting that directories need execute permission to be traversable.",
+        "Changing mode on a file that is managed by a package manager and will be overwritten."
+      ],
+      "what_to_check_before": [
+        "ls -l to see current permissions and ownership.",
+        "Understand which user the process runs as."
+      ],
+      "what_to_check_after": [
+        "Retry the operation that failed.",
+        "Confirm with ls -l that the mode is correct.",
+        "Check whether SELinux or AppArmor is also involved."
+      ],
+      "related_commands": ["chown", "ls -l", "namei", "getfacl"],
+      "best_practices": [
+        "Prefer symbolic modes (u+rX) over octal when the intent is clearer.",
+        "Never use 777 in production; find the correct user/group instead."
+      ],
+      "interview_question": "A directory has permissions 644 and a process cannot list its contents. Why?",
+      "interview_answer": "Directories require the execute bit to be traversable. 644 on a directory means no execute for anyone, so listing and entering fail. It should typically be 755 or 750.",
+      "importance": 7,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["permissions", "security", "files"]
+    },
+    {
+      "id": 21,
+      "title": "Change file ownership",
+      "command": "chown",
+      "summary": "Changes the user and/or group ownership of files and directories.",
+      "problem": "A process running as a non-root user cannot write to a directory owned by root or another user.",
+      "why_this_command": "Ownership is frequently wrong after package installs, manual copies, or container volume mounts.",
+      "thinking_process": [
+        "Permission denied even though the mode bits look correct.",
+        "ls -l shows the file is owned by root while the service runs as 'app'.",
+        "chown app:app fixes it."
+      ],
+      "syntax": "chown [OPTIONS] USER[:GROUP] FILE",
+      "examples": [
+        "chown app:app /var/log/myapp",
+        "chown -R www-data:www-data /var/www/html",
+        "chown root:adm /var/log/syslog"
+      ],
+      "expected_output": "No output on success.",
+      "how_to_interpret_output": "Silent success. Verify with ls -l.",
+      "real_world_incidents": [
+        "Application could not write logs after a volume was mounted as root.",
+        "Deploy script left files owned by the CI user.",
+        "Shared directory needed group ownership for multiple services."
+      ],
+      "common_mistakes": [
+        "Using chown -R on large trees without confirming the path.",
+        "Changing ownership of system files that package managers expect to own.",
+        "Forgetting the group when the process checks group permissions."
+      ],
+      "what_to_check_before": [
+        "ls -l and id <user> to confirm current state and target user."
+      ],
+      "what_to_check_after": [
+        "Retry the failing operation.",
+        "Verify with ls -l and possibly namei -l for path traversal."
+      ],
+      "related_commands": ["chmod", "ls -l", "id", "namei"],
+      "best_practices": [
+        "Prefer chown user:group over separate chown and chgrp.",
+        "Be extremely careful with -R on / or other broad paths."
+      ],
+      "interview_question": "When would you use chown versus chmod to fix a permission denied error?",
+      "interview_answer": "Use chmod when the mode bits are wrong for the current owner. Use chown when the file is owned by the wrong user or group relative to the process that needs access.",
+      "importance": 7,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["permissions", "ownership", "files"]
+    },
+    {
+      "id": 22,
+      "title": "Detailed file listing",
+      "command": "ls -la",
+      "summary": "Lists files with permissions, ownership, size, and hidden files.",
+      "problem": "I need to inspect the exact permissions, owner, size, or presence of a file or directory.",
+      "why_this_command": "The most common way to examine the filesystem state before changing anything.",
+      "thinking_process": [
+        "Permission or missing-file issue.",
+        "ls -la shows me everything including dotfiles and exact modes.",
+        "From there I decide on chmod, chown, or further investigation."
+      ],
+      "syntax": "ls -la [PATH]",
+      "examples": [
+        "ls -la /var/log/myapp",
+        "ls -la /etc/nginx/conf.d/",
+        "ls -lai /path/to/file"
+      ],
+      "expected_output": "total blocks, then lines with mode, links, owner, group, size, date, name",
+      "how_to_interpret_output": "First character is type (d=directory, -=file, l=symlink). Next nine characters are permissions. Check owner and group match the expected runtime user.",
+      "real_world_incidents": [
+        "Discovering a .env file with secrets that had overly open permissions.",
+        "Finding that a required config file was missing after a deploy.",
+        "Noticing a symlink pointing to the wrong location."
+      ],
+      "common_mistakes": [
+        "Using plain ls and missing hidden files that matter.",
+        "Not noticing a trailing slash or symlink.",
+        "Misreading the permission string."
+      ],
+      "what_to_check_before": [
+        "Know the expected path."
+      ],
+      "what_to_check_after": [
+        "If permissions look wrong → chmod/chown",
+        "If file is missing → check the deploy or package."
+      ],
+      "related_commands": ["stat", "namei", "chmod", "chown"],
+      "best_practices": [
+        "Always use -la when diagnosing permission issues.",
+        "Add -i when you need inode numbers (for example with find or deleted files)."
+      ],
+      "interview_question": "How can you tell from ls -l whether a path is a symlink and where it points?",
+      "interview_answer": "The first character is 'l' and the name column shows 'name -> target'.",
+      "importance": 7,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["files", "permissions", "inspection"]
+    },
+    {
+      "id": 23,
+      "title": "Report system identity and kernel",
+      "command": "uname -a",
+      "summary": "Prints kernel name, hostname, kernel release, version, and architecture.",
+      "problem": "What kernel and architecture am I on? Is this the expected host?",
+      "why_this_command": "Quick confirmation of the OS/kernel during incidents and when following kernel-specific advice.",
+      "thinking_process": [
+        "I need to know the exact kernel version for a CVE or driver issue.",
+        "uname -a gives the full string in one line.",
+        "Also useful to confirm I am on the correct machine."
+      ],
+      "syntax": "uname -a",
+      "examples": [
+        "uname -a",
+        "uname -r",
+        "uname -m"
+      ],
+      "expected_output": "Linux hostname 5.15.0-91-generic #101-Ubuntu SMP ... x86_64 GNU/Linux",
+      "how_to_interpret_output": "Kernel release is the important part for module and CVE checks. Architecture must match the binaries you intend to run.",
+      "real_world_incidents": [
+        "Confirming a host was still on an old kernel after a failed upgrade.",
+        "Verifying architecture before installing a package.",
+        "Matching kernel version to a known bug report."
+      ],
+      "common_mistakes": [
+        "Assuming the running kernel matches the installed package without checking.",
+        "Not noticing that a live patch or special kernel is in use."
+      ],
+      "what_to_check_before": [],
+      "what_to_check_after": [
+        "If kernel is unexpected → check /etc/os-release and package history."
+      ],
+      "related_commands": ["hostnamectl", "cat /etc/os-release", "lscpu"],
+      "best_practices": [
+        "Include uname -a in any bug report or incident notes.",
+        "Use uname -r when you only need the release string."
+      ],
+      "interview_question": "How do you determine the exact kernel version running on a host?",
+      "interview_answer": "uname -r or uname -a",
+      "importance": 6,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["system", "kernel", "identity"]
+    },
+    {
+      "id": 24,
+      "title": "Show current user and groups",
+      "command": "id",
+      "summary": "Displays the real and effective user ID, group ID, and supplementary groups.",
+      "problem": "What user am I running as? Does this user belong to the groups required for access?",
+      "why_this_command": "Essential when diagnosing permission problems or when sudo/su has been used.",
+      "thinking_process": [
+        "Permission denied but the file mode looks correct.",
+        "id tells me the exact uid/gid and groups of the current shell.",
+        "I can compare with the file ownership."
+      ],
+      "syntax": "id [USER]",
+      "examples": [
+        "id",
+        "id app",
+        "id -un"
+      ],
+      "expected_output": "uid=1000(user) gid=1000(user) groups=1000(user),27(sudo),999(docker)",
+      "how_to_interpret_output": "Check that the expected groups (docker, sudo, etc.) are present. Effective vs real IDs matter after setuid.",
+      "real_world_incidents": [
+        "User could not access docker socket because not in the docker group.",
+        "Application running as the wrong user after a service file change.",
+        "Sudo worked for one user but not another due to group membership."
+      ],
+      "common_mistakes": [
+        "Checking id in one shell and the process running in another context (different user).",
+        "Forgetting that group membership changes require a new login."
+      ],
+      "what_to_check_before": [],
+      "what_to_check_after": [
+        "If groups are wrong → usermod -aG and re-login.",
+        "Compare with the user the service runs as (ps or systemctl show)."
+      ],
+      "related_commands": ["whoami", "groups", "ps", "systemctl"],
+      "best_practices": [
+        "Always run id when you are unsure of the current identity, especially after sudo or su.",
+        "Use id <username> to inspect another account without switching."
+      ],
+      "interview_question": "A user was added to the docker group but still cannot run docker commands. What is the most common reason?",
+      "interview_answer": "The group membership is only applied at login. The user needs to log out and back in, or use newgrp docker, for the change to take effect.",
+      "importance": 6,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["users", "groups", "permissions"]
+    },
+    {
+      "id": 25,
+      "title": "Virtual memory and process statistics",
+      "command": "vmstat",
+      "summary": "Reports processes, memory, swap, I/O, and CPU activity.",
+      "problem": "Is the system swapping? Is I/O wait high? Are processes blocked?",
+      "why_this_command": "Gives a concise system-wide view of memory pressure and I/O that top alone does not summarize as clearly.",
+      "thinking_process": [
+        "Load is high but CPU does not look saturated in top.",
+        "vmstat shows whether the time is spent in iowait or if swap is thrashing.",
+        "That directs me to disk or memory investigation."
+      ],
+      "syntax": "vmstat [INTERVAL] [COUNT]",
+      "examples": [
+        "vmstat 1 5",
+        "vmstat -s",
+        "vmstat 2"
+      ],
+      "expected_output": "procs, memory, swap, io, system, cpu columns",
+      "how_to_interpret_output": "si/so > 0 means swapping (bad). wa (iowait) high means disk bottleneck. b (blocked) processes indicate I/O wait.",
+      "real_world_incidents": [
+        "System thrashing because swap was being used heavily.",
+        "High iowait caused by a saturated disk while CPU was idle.",
+        "Run queue backed up because of blocked processes."
+      ],
+      "common_mistakes": [
+        "Looking only at the first line (it is averages since boot).",
+        "Ignoring the swap columns when diagnosing memory issues.",
+        "Not running with an interval to see live changes."
+      ],
+      "what_to_check_before": [
+        "Have top or free output for context."
+      ],
+      "what_to_check_after": [
+        "If swapping → free -h and identify memory consumers.",
+        "If high iowait → iostat or iotop to find the disk-heavy process."
+      ],
+      "related_commands": ["free", "iostat", "top", "iotop"],
+      "best_practices": [
+        "Always supply an interval (vmstat 1) so the first line is not the since-boot average.",
+        "Use together with iostat when disk is suspected."
+      ],
+      "interview_question": "vmstat shows high 'wa' and non-zero 'b'. What does that indicate?",
+      "interview_answer": "High I/O wait and processes blocked on I/O. The system is disk-bound rather than CPU-bound. Next step is iostat or iotop to identify the offending process and disk.",
+      "importance": 7,
+      "frequency": "Weekly",
+      "difficulty": "Medium",
+      "tags": ["memory", "io", "performance", "swap"]
+    },
+    {
+      "id": 26,
+      "title": "I/O statistics by device",
+      "command": "iostat",
+      "summary": "Shows CPU and disk I/O statistics per device.",
+      "problem": "Is a particular disk saturated? Which device is causing high iowait?",
+      "why_this_command": "When vmstat or top indicate I/O pressure, iostat pinpoints the device and the read/write rates.",
+      "thinking_process": [
+        "vmstat showed high wa.",
+        "iostat -xz 1 tells me which disk is busy and whether it is reads or writes.",
+        "Then I can map the device to a mount and find the process."
+      ],
+      "syntax": "iostat [-xz] [INTERVAL] [COUNT]",
+      "examples": [
+        "iostat -xz 1 5",
+        "iostat -d 2",
+        "iostat -xz"
+      ],
+      "expected_output": "Device, tps, read/write kB/s, await, %util",
+      "how_to_interpret_output": "%util near 100% means the device is saturated. High await means slow response times. Distinguish r/s vs w/s.",
+      "real_world_incidents": [
+        "A single disk at 100% util causing application timeouts.",
+        "Heavy write load from a misconfigured log rotation.",
+        "Database query generating massive sequential reads."
+      ],
+      "common_mistakes": [
+        "Not installing sysstat package (iostat is not always present by default).",
+        "Looking only at tps without considering await and %util.",
+        "Forgetting that device names may be multipath or LVM aliases."
+      ],
+      "what_to_check_before": [
+        "Confirm sysstat is installed."
+      ],
+      "what_to_check_after": [
+        "Once the busy device is known → df to find the mount, then iotop or lsof to find the process."
+      ],
+      "related_commands": ["vmstat", "iotop", "df", "lsblk"],
+      "best_practices": [
+        "Use iostat -xz 1 for extended stats and utilization.",
+        "Correlate with the mount point using lsblk or df."
+      ],
+      "interview_question": "iostat shows a device at 98% util and high await. What do you do next?",
+      "interview_answer": "Identify which filesystem is on that device (lsblk/df), then use iotop or pidstat -d to find the process generating the I/O, and finally decide whether to optimize the workload or move it to faster storage.",
+      "importance": 7,
+      "frequency": "Weekly",
+      "difficulty": "Medium",
+      "tags": ["io", "disk", "performance"]
+    },
+    {
+      "id": 27,
+      "title": "Trace system calls of a process",
+      "command": "strace",
+      "summary": "Intercepts and records system calls made by a process.",
+      "problem": "A process is hanging or failing and application logs give no clue. What is it waiting on?",
+      "why_this_command": "Shows the exact system calls (open, read, connect, poll, etc.) so you can see if it is stuck on a network call, file, or lock.",
+      "thinking_process": [
+        "Process is hung, CPU is low, no useful logs.",
+        "strace -p PID shows the last system calls.",
+        "Often reveals a blocking connect, a missing file, or a deadlock."
+      ],
+      "syntax": "strace [-p PID] [-f] [-e trace=...] [-o FILE]",
+      "examples": [
+        "strace -p 1234",
+        "strace -f -e trace=network -p 1234",
+        "strace -o /tmp/trace.log -p 1234"
+      ],
+      "expected_output": "Sequence of system calls with arguments and return values.",
+      "how_to_interpret_output": "Look for calls that do not return (blocking) or that return errors (ENOENT, ECONNREFUSED, EACCES). The last few calls before a hang are the most interesting.",
+      "real_world_incidents": [
+        "Process stuck in connect() to a database that was down.",
+        "Repeated open() failures for a missing configuration file.",
+        "Application hanging on a flock that was never released."
+      ],
+      "common_mistakes": [
+        "Attaching to a multi-threaded process without -f and missing the relevant thread.",
+        "Leaving strace running too long and impacting performance.",
+        "Misreading the output because of incomplete knowledge of syscalls."
+      ],
+      "what_to_check_before": [
+        "Confirm the PID and that you have permission (usually root).",
+        "Prefer less invasive methods (logs, status) first."
+      ],
+      "what_to_check_after": [
+        "Once the blocking call is identified, fix the underlying resource (network, file, lock).",
+        "Detach with Ctrl-C; the process continues."
+      ],
+      "related_commands": ["lsof", "gdb", "perf", "ps"],
+      "best_practices": [
+        "Use -e trace=set to limit output to relevant syscalls.",
+        "Always prefer application logs and metrics before reaching for strace."
+      ],
+      "interview_question": "A process is stuck and strace shows it blocked in futex. What does that usually mean?",
+      "interview_answer": "It is waiting on a lock or condition variable, often a deadlock or contention with another thread. Next steps include checking other threads with strace -f or examining application-level locking."
+,
+      "importance": 6,
+      "frequency": "Monthly",
+      "difficulty": "Hard",
+      "tags": ["debugging", "syscalls", "hang"]
+    },
+    {
+      "id": 28,
+      "title": "Display disk partition and mount information",
+      "command": "lsblk",
+      "summary": "Lists block devices, their partitions, sizes, and mount points in a tree.",
+      "problem": "What devices and filesystems are present? Where is a particular mount coming from?",
+      "why_this_command": "Clean overview of storage layout, especially useful with LVM, multipath, or cloud volumes.",
+      "thinking_process": [
+        "df showed a full filesystem but I need to understand the underlying device.",
+        "lsblk shows the hierarchy and mount points at a glance.",
+        "Helps map iostat devices back to filesystems."
+      ],
+      "syntax": "lsblk [-f] [-o OPTIONS]",
+      "examples": [
+        "lsblk",
+        "lsblk -f",
+        "lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE"
+      ],
+      "expected_output": "Tree of NAME, MAJ:MIN, RM, SIZE, RO, TYPE, MOUNTPOINT",
+      "how_to_interpret_output": "Follow the tree from disk to partition to LVM to mount point. -f adds FSTYPE and LABEL/UUID.",
+      "real_world_incidents": [
+        "Identifying which physical volume was behind a full logical volume.",
+        "Discovering an unmounted disk that still had data.",
+        "Mapping a device name from iostat to its mount point."
+      ],
+      "common_mistakes": [
+        "Assuming device names are stable across reboots (use UUID or LABEL in fstab).",
+        "Not using -f when you need filesystem type information."
+      ],
+      "what_to_check_before": [],
+      "what_to_check_after": [
+        "If a filesystem is full → du on its mount point.",
+        "If a device is missing → check cloud console or hardware."
+      ],
+      "related_commands": ["df", "blkid", "mount", "iostat"],
+      "best_practices": [
+        "Use lsblk -f for a complete view including UUIDs.",
+        "Prefer UUID= in /etc/fstab over device names."
+      ],
+      "interview_question": "How do you find which block device a mount point is on?",
+      "interview_answer": "lsblk or df -h <mountpoint> or findmnt <mountpoint>",
+      "importance": 6,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["disk", "storage", "mounts"]
+    },
+    {
+      "id": 29,
+      "title": "Show mount points and options",
+      "command": "mount",
+      "summary": "Lists all currently mounted filesystems with their options, or mounts a filesystem.",
+      "problem": "Is a filesystem mounted? With what options (ro, noexec, etc.)?",
+      "why_this_command": "Confirms mount state and options that can cause permission or execution problems.",
+      "thinking_process": [
+        "Permission or 'read-only filesystem' error.",
+        "mount | grep <path> shows whether it is mounted and the options.",
+        "A ro mount or noexec flag is often the root cause."
+      ],
+      "syntax": "mount [-l] | grep PATH",
+      "examples": [
+        "mount | grep /var",
+        "mount -l",
+        "findmnt /var/lib/docker"
+      ],
+      "expected_output": "device on mountpoint type fstype (options)",
+      "how_to_interpret_output": "Look for 'ro' (read-only) or restrictive options like noexec, nosuid. Compare with expected fstab entries.",
+      "real_world_incidents": [
+        "Filesystem remounted read-only after disk errors.",
+        "noexec on /tmp breaking application installers.",
+        "Bind mount missing after a reboot."
+      ],
+      "common_mistakes": [
+        "Using the mount command to mount without understanding the implications on a production host.",
+        "Not checking findmnt which is often clearer."
+      ],
+      "what_to_check_before": [
+        "Prefer findmnt for querying."
+      ],
+      "what_to_check_after": [
+        "If remounted ro → check dmesg for underlying disk errors.",
+        "If options are wrong → correct /etc/fstab and remount."
+      ],
+      "related_commands": ["findmnt", "df", "lsblk", "dmesg"],
+      "best_practices": [
+        "Use findmnt for modern, scriptable output.",
+        "Never change mount options on a production root filesystem without a tested plan."
+      ],
+      "interview_question": "An application cannot execute a binary located under /tmp. What is a common cause visible in mount output?",
+      "interview_answer": "The filesystem is mounted with the noexec option. Check mount | grep /tmp or findmnt /tmp.",
+      "importance": 6,
+      "frequency": "Monthly",
+      "difficulty": "Medium",
+      "tags": ["mounts", "filesystem", "options"]
+    },
+    {
+      "id": 30,
+      "title": "Count lines, words, characters in files or streams",
+      "command": "wc",
+      "summary": "Counts lines, words, and bytes; most often used for line counts of logs or lists.",
+      "problem": "How many errors occurred? How many files matched? How large is this output?",
+      "why_this_command": "Simple but indispensable for quantifying problems (error rates, number of matching processes, etc.).",
+      "thinking_process": [
+        "I grepped for errors and got a flood of lines.",
+        "wc -l tells me the exact count so I can judge severity.",
+        "Also useful after find or ps to know how many items matched."
+      ],
+      "syntax": "wc [-l] [-w] [-c] [FILE...]",
+      "examples": [
+        "grep -c error /var/log/app.log",
+        "wc -l /var/log/nginx/access.log",
+        "ps aux | grep java | wc -l"
+      ],
+      "expected_output": "lines words bytes filename (or just the number when used in a pipeline)",
+      "how_to_interpret_output": "The line count is usually the most useful number during incidents. Sudden spikes indicate a problem.",
+      "real_world_incidents": [
+        "Counting 5xx responses in an access log during an outage.",
+        "Discovering thousands of zombie processes.",
+        "Measuring how many files a find command matched before deleting."
+      ],
+      "common_mistakes": [
+        "Using wc -l on a binary file or a file without trailing newlines.",
+        "Forgetting that grep -c is often cleaner than grep | wc -l."
+      ],
+      "what_to_check_before": [],
+      "what_to_check_after": [
+        "Use the count to decide severity and next investigative steps."
+      ],
+      "related_commands": ["grep", "find", "ps", "awk"],
+      "best_practices": [
+        "Prefer grep -c when you only need a count of matches.",
+        "Combine with other tools in pipelines for quick metrics during incidents."
+      ],
+      "interview_question": "How do you count the number of listening TCP sockets on a host?",
+      "interview_answer": "ss -tln | wc -l (subtract 1 for the header) or ss -tln | grep -c LISTEN",
+      "importance": 5,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["counting", "logs", "metrics"]
+    }
+  ]
+}

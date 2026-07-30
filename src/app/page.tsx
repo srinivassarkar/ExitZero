@@ -81,6 +81,7 @@ export default function Home() {
   const [activeCategoryId, setActiveCategoryId] = useState(1);
   const [activeQuestionId, setActiveQuestionId] = useState(1);
   const [isStudyingSaved, setIsStudyingSaved] = useState(false);
+  const [activeRunbookTool, setActiveRunbookTool] = useState("linux");
 
   // Queue state
   const [activeQueue, setActiveQueue] = useState<Question[]>([]);
@@ -448,6 +449,8 @@ export default function Home() {
         bookmarks={bookmarks}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
+        activeRunbookTool={activeRunbookTool}
+        setActiveRunbookTool={setActiveRunbookTool}
       />
 
       {/* Main Container */}
@@ -505,7 +508,11 @@ export default function Home() {
             }}
           />
         ) : activeTechId === "runbooks" ? (
-          <RunbooksView />
+          <RunbooksView
+            soundHapticsEnabled={soundHapticsEnabled}
+            activeTool={activeRunbookTool}
+            setActiveTool={setActiveRunbookTool}
+          />
         ) : activeTechId === "incident_labs" ? (
           <IncidentLabsView />
         ) : activeQuestion ? (

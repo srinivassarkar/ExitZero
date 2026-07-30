@@ -1,0 +1,602 @@
+{
+  "tool": "git",
+  "version": "1.0",
+  "description": "Production Git troubleshooting runbook focused on the commands that resolve 90% of day-to-day version-control incidents, bad deploys, and on-call recovery scenarios.",
+  "totalCommands": 12,
+  "commands": [
+    {
+      "id": 1,
+      "title": "Show working tree status",
+      "command": "git status",
+      "summary": "Displays the current branch, staged/unstaged changes, and untracked files.",
+      "problem": "What is the current state of this repository? Am I on the right branch? Are there uncommitted changes that will block a deploy or merge?",
+      "why_this_command": "The single most important first command in any Git incident. Everything else depends on knowing the exact state of the working tree and HEAD.",
+      "thinking_process": [
+        "Something looks wrong with the code on this host or in this PR.",
+        "git status tells me the branch, whether it is clean, and what is staged or modified.",
+        "From there I decide whether to commit, stash, reset, or switch branches."
+      ],
+      "syntax": "git status [-sb] [--ignored]",
+      "examples": [
+        "git status",
+        "git status -sb",
+        "git status --ignored"
+      ],
+      "expected_output": "On branch main\nYour branch is up to date with 'origin/main'.\nnothing to commit, working tree clean",
+      "how_to_interpret_output": "Look at the branch name first. Then check for 'Changes to be committed', 'Changes not staged', and 'Untracked files'. A dirty tree on a production checkout is almost always a problem.",
+      "real_world_incidents": [
+        "Deploy failed because uncommitted local changes existed on the build agent.",
+        "Engineer was on a feature branch instead of main when investigating a production bug.",
+        "Leftover untracked config files caused a service to pick up the wrong settings."
+      ],
+      "common_mistakes": [
+        "Assuming the working tree is clean without running status.",
+        "Ignoring untracked files that are actually required by the application.",
+        "Not noticing that the branch has diverged from its remote."
+      ],
+      "what_to_check_before": [
+        "Confirm you are in the correct repository directory."
+      ],
+      "what_to_check_after": [
+        "If on the wrong branch → git checkout or git switch",
+        "If dirty → decide to commit, stash, or discard",
+        "If behind/ahead → git fetch and then pull or push"
+      ],
+      "related_commands": ["git branch", "git diff", "git stash", "git log"],
+      "best_practices": [
+        "Always run git status as the first command when you enter a repository during an incident.",
+        "Use git status -sb for a compact view in scripts and busy terminals."
+      ],
+      "interview_question": "You open a repository and need to know immediately whether it is safe to pull. What do you run first and why?",
+      "interview_answer": "git status. It shows the current branch, whether the working tree is clean, and how the branch relates to its upstream. A dirty tree or divergence must be resolved before pulling.",
+      "importance": 10,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["status", "first-command", "working-tree"]
+    },
+    {
+      "id": 2,
+      "title": "Show commit history",
+      "command": "git log",
+      "summary": "Displays the commit history with messages, authors, and hashes.",
+      "problem": "What changed recently? Who introduced this commit? What is the exact commit currently deployed?",
+      "why_this_command": "Essential for tracing regressions, verifying deploys, and finding the commit to revert or bisect.",
+      "thinking_process": [
+        "Production broke after a deploy.",
+        "git log shows the recent commits and their messages.",
+        "I can identify the suspect commit and then inspect or revert it."
+      ],
+      "syntax": "git log [--oneline] [-n N] [--graph] [--author=...] ",
+      "examples": [
+        "git log --oneline -10",
+        "git log --oneline --graph -15",
+        "git log -p -1"
+      ],
+      "expected_output": "commit hashes, authors, dates, and messages (or compact one-line form)",
+      "how_to_interpret_output": "Look for the most recent commits first. Match deploy times to commit timestamps. Use the hash for subsequent checkout, revert, or bisect.",
+      "real_world_incidents": [
+        "Identifying the exact commit that introduced a breaking API change.",
+        "Confirming that a hotfix had actually landed on the production branch.",
+        "Finding the author of a change that broke CI."
+      ],
+      "common_mistakes": [
+        "Looking only at the message and missing the full diff with -p.",
+        "Assuming the top commit is what is running in production without verifying the deployed SHA.",
+        "Not limiting output with -n and getting overwhelmed."
+      ],
+      "what_to_check_before": [
+        "Know roughly when the problem started."
+      ],
+      "what_to_check_after": [
+        "If a bad commit is identified → git show <hash> or git revert",
+        "If history is unclear → git log --graph --oneline --all"
+      ],
+      "related_commands": ["git show", "git blame", "git bisect", "git diff"],
+      "best_practices": [
+        "Prefer git log --oneline -20 for rapid incident triage.",
+        "Always record the production commit SHA in deploy logs so you can match it later."
+      ],
+      "interview_question": "How do you quickly see the last 5 commits with their hashes and one-line messages?",
+      "interview_answer": "git log --oneline -5",
+      "importance": 9,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["history", "commits", "investigation"]
+    },
+    {
+      "id": 3,
+      "title": "Show changes in the working tree or between commits",
+      "command": "git diff",
+      "summary": "Shows unstaged changes, staged changes, or differences between commits.",
+      "problem": "What exactly changed? Is this the change I expected before committing or deploying?",
+      "why_this_command": "The only reliable way to review the precise content of modifications before they are committed or after they have been made.",
+      "thinking_process": [
+        "git status showed modified files.",
+        "git diff shows the actual line-by-line changes.",
+        "I can decide whether to stage, discard, or keep them."
+      ],
+      "syntax": "git diff [--staged] [COMMIT] [COMMIT]",
+      "examples": [
+        "git diff",
+        "git diff --staged",
+        "git diff HEAD~1 HEAD"
+      ],
+      "expected_output": "Unified diff with + and - lines",
+      "how_to_interpret_output": "Red/removed lines are what was deleted; green/added lines are new. Watch for accidental deletions, debug prints, or secrets.",
+      "real_world_incidents": [
+        "Catching a debug print that would have been committed.",
+        "Discovering that a config file change was larger than expected.",
+        "Comparing the running production commit against the previous one during a regression."
+      ],
+      "common_mistakes": [
+        "Looking only at unstaged diff and missing what is already staged.",
+        "Forgetting that git diff shows unstaged changes by default.",
+        "Not reviewing the full diff of a large change before force-pushing."
+      ],
+      "what_to_check_before": [
+        "Run git status first to know what is staged vs unstaged."
+      ],
+      "what_to_check_after": [
+        "If changes look good → git add and commit",
+        "If changes are wrong → git checkout -- <file> or git restore"
+      ],
+      "related_commands": ["git status", "git add", "git show", "git checkout"],
+      "best_practices": [
+        "Always run git diff and git diff --staged before every commit.",
+        "Use git diff HEAD~1 during incident review to see exactly what the last commit changed."
+      ],
+      "interview_question": "How do you see only the changes that have already been staged for commit?",
+      "interview_answer": "git diff --staged (or git diff --cached)",
+      "importance": 9,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["diff", "review", "changes"]
+    },
+    {
+      "id": 4,
+      "title": "Switch branches or restore files",
+      "command": "git checkout",
+      "summary": "Switches branches or restores working-tree files from a commit or the index.",
+      "problem": "I am on the wrong branch, or I need to discard local changes to a file, or I need to examine an old commit.",
+      "why_this_command": "Still the most widely used command for branch switching and file restoration in production environments, even though git switch and git restore exist.",
+      "thinking_process": [
+        "git status showed I am on a feature branch or have unwanted local changes.",
+        "git checkout <branch> moves me to the correct branch.",
+        "git checkout -- <file> discards local modifications safely."
+      ],
+      "syntax": "git checkout <branch> | git checkout -- <file> | git checkout <commit>",
+      "examples": [
+        "git checkout main",
+        "git checkout -- config.yml",
+        "git checkout abc1234"
+      ],
+      "expected_output": "Switched to branch 'main' or Updated N paths from ...",
+      "how_to_interpret_output": "Success messages confirm the switch or restore. Detached HEAD warning appears when checking out a commit directly.",
+      "real_world_incidents": [
+        "Moving a production checkout from a feature branch back to main.",
+        "Discarding a broken local config change that was causing the service to fail.",
+        "Checking out the exact commit that was deployed to reproduce a bug."
+      ],
+      "common_mistakes": [
+        "Using git checkout <file> without -- and accidentally creating a branch.",
+        "Checking out a commit and ending up in detached HEAD without realizing it.",
+        "Discarding changes that were actually needed."
+      ],
+      "what_to_check_before": [
+        "git status to see what will be overwritten.",
+        "Stash or commit anything you might need later."
+      ],
+      "what_to_check_after": [
+        "git status to confirm the new state.",
+        "If detached HEAD → create a branch or return to a named branch."
+      ],
+      "related_commands": ["git switch", "git restore", "git status", "git stash"],
+      "best_practices": [
+        "Prefer git switch for branch changes and git restore for file restoration when the Git version supports them.",
+        "Never discard changes without confirming they are disposable."
+      ],
+      "interview_question": "What is the difference between git checkout main and git checkout abc1234?",
+      "interview_answer": "git checkout main switches to the named branch and stays on it. git checkout abc1234 puts you in detached HEAD state at that commit; any new commits will be orphaned unless you create a branch.",
+      "importance": 8,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["branches", "restore", "detached-head"]
+    },
+    {
+      "id": 5,
+      "title": "Create or list branches",
+      "command": "git branch",
+      "summary": "Lists local branches or creates/deletes a branch.",
+      "problem": "What branches exist locally? Am I on the expected branch? Do I need a new branch for a hotfix?",
+      "why_this_command": "Quick way to see branch state and to create a short-lived hotfix branch during an incident.",
+      "thinking_process": [
+        "I need to know which branches are present and which one is current.",
+        "git branch shows the list with * marking the current branch.",
+        "git branch hotfix/xxx creates a new branch for an emergency fix."
+      ],
+      "syntax": "git branch [-a] [-v] [<name>] [-d <name>]",
+      "examples": [
+        "git branch",
+        "git branch -a",
+        "git branch hotfix/payment-timeout"
+      ],
+      "expected_output": "* main\n  feature/login\n  hotfix/payment-timeout",
+      "how_to_interpret_output": "The asterisk marks the current branch. -a shows remote-tracking branches as well. -v adds the last commit on each branch.",
+      "real_world_incidents": [
+        "Confirming a hotfix branch was created from the correct production commit.",
+        "Discovering that a long-lived feature branch was still checked out on a server.",
+        "Cleaning up stale local branches after a release."
+      ],
+      "common_mistakes": [
+        "Creating a branch without switching to it (git branch only creates; use checkout/switch to move).",
+        "Deleting a branch that still has unmerged work with -d vs -D.",
+        "Not fetching first, so remote branches are missing from the view."
+      ],
+      "what_to_check_before": [
+        "git status to know the current branch and working-tree state."
+      ],
+      "what_to_check_after": [
+        "If you created a branch → git checkout <name> or git switch <name>",
+        "If cleaning up → git fetch --prune and then delete safely"
+      ],
+      "related_commands": ["git checkout", "git switch", "git branch -a", "git remote"],
+      "best_practices": [
+        "Always create hotfix branches from the exact production commit SHA.",
+        "Use descriptive names: hotfix/short-description."
+      ],
+      "interview_question": "How do you create a new branch and switch to it in one command?",
+      "interview_answer": "git checkout -b <branch> or git switch -c <branch>",
+      "importance": 7,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["branches", "hotfix"]
+    },
+    {
+      "id": 6,
+      "title": "Fetch remote updates without merging",
+      "command": "git fetch",
+      "summary": "Downloads commits, branches, and tags from the remote without changing the working tree.",
+      "problem": "Is the remote ahead of me? What new commits exist on origin before I pull or deploy?",
+      "why_this_command": "Safe way to update remote-tracking branches so you can inspect what will change before merging or rebasing.",
+      "thinking_process": [
+        "I need to know whether production or origin/main has moved.",
+        "git fetch updates the remote-tracking refs.",
+        "Then I can log or diff against origin/main safely."
+      ],
+      "syntax": "git fetch [<remote>] [--prune]",
+      "examples": [
+        "git fetch",
+        "git fetch origin",
+        "git fetch --prune"
+      ],
+      "expected_output": "From github.com:org/repo\n * [new branch] ...\n   abc..def  main -> origin/main",
+      "how_to_interpret_output": "Shows which refs were updated. No local branches or working tree are modified. After fetch you can safely compare with origin/main.",
+      "real_world_incidents": [
+        "Discovering that origin/main had moved forward before a planned deploy.",
+        "Fetching a hotfix branch that was pushed by another engineer.",
+        "Pruning deleted remote branches that were still cluttering the local view."
+      ],
+      "common_mistakes": [
+        "Assuming fetch updates the current branch (it does not).",
+        "Forgetting --prune and accumulating stale remote-tracking branches.",
+        "Fetching and then immediately pulling without reviewing the incoming commits."
+      ],
+      "what_to_check_before": [
+        "Confirm the remote name (usually origin)."
+      ],
+      "what_to_check_after": [
+        "git log HEAD..origin/main to see what would be merged",
+        "git status to see ahead/behind counts"
+      ],
+      "related_commands": ["git pull", "git log", "git status", "git remote -v"],
+      "best_practices": [
+        "Fetch before every pull or rebase so you can review the incoming changes.",
+        "Use git fetch --prune regularly to keep remote-tracking branches clean."
+      ],
+      "interview_question": "What is the practical difference between git fetch and git pull?",
+      "interview_answer": "git fetch only updates remote-tracking branches; the working tree and current branch stay unchanged. git pull does a fetch followed by a merge (or rebase) into the current branch.",
+      "importance": 8,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["remote", "sync", "safe"]
+    },
+    {
+      "id": 7,
+      "title": "Integrate remote changes into the current branch",
+      "command": "git pull",
+      "summary": "Fetches from the remote and merges (or rebases) into the current branch.",
+      "problem": "My local branch is behind the remote and I need the latest commits before building or deploying.",
+      "why_this_command": "The everyday way to bring a tracking branch up to date. Used constantly on developer machines and sometimes on deploy hosts.",
+      "thinking_process": [
+        "git status showed the branch is behind origin.",
+        "I have confirmed the working tree is clean.",
+        "git pull brings the latest changes in."
+      ],
+      "syntax": "git pull [<remote>] [<branch>] [--rebase]",
+      "examples": [
+        "git pull",
+        "git pull origin main",
+        "git pull --rebase"
+      ],
+      "expected_output": "Updating abc..def\nFast-forward\n or a merge commit message",
+      "how_to_interpret_output": "Fast-forward is cleanest. A merge commit means histories diverged. Conflicts will stop the pull and require resolution.",
+      "real_world_incidents": [
+        "Pulling the latest main onto a deploy host before a release.",
+        "Merge conflicts appearing because local commits existed that were not expected.",
+        "Accidentally pulling into a dirty working tree and creating a mess."
+      ],
+      "common_mistakes": [
+        "Pulling with a dirty working tree.",
+        "Using pull on a production server that should only ever check out a specific SHA.",
+        "Not reviewing the incoming commits before the pull completes."
+      ],
+      "what_to_check_before": [
+        "git status must be clean.",
+        "Prefer git fetch + review before a plain pull on shared or production branches."
+      ],
+      "what_to_check_after": [
+        "git status and git log -5 to confirm the new state.",
+        "If conflicts → resolve, git add, git commit (or git rebase --continue)"
+      ],
+      "related_commands": ["git fetch", "git status", "git merge", "git rebase"],
+      "best_practices": [
+        "On shared branches prefer git pull --rebase to avoid unnecessary merge commits.",
+        "Never pull on a production checkout that is expected to be at a pinned SHA; check out the SHA instead."
+      ],
+      "interview_question": "When is git pull --rebase preferable to a plain git pull?",
+      "interview_answer": "When you have local commits that have not been pushed and you want a linear history instead of a merge commit. It replays your commits on top of the updated remote branch.",
+      "importance": 8,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["remote", "sync", "merge"]
+    },
+    {
+      "id": 8,
+      "title": "Temporarily shelve local changes",
+      "command": "git stash",
+      "summary": "Saves uncommitted changes and reverts the working tree to a clean state.",
+      "problem": "I have local modifications but need a clean tree to switch branches, pull, or deploy, and I do not want to commit yet.",
+      "why_this_command": "The standard way to set aside work-in-progress without creating a commit that will later need to be cleaned up.",
+      "thinking_process": [
+        "git status shows modified files I am not ready to commit.",
+        "I need to switch branches or pull.",
+        "git stash saves the changes and cleans the tree; I can pop them later."
+      ],
+      "syntax": "git stash [push] [-m message] | git stash list | git stash pop",
+      "examples": [
+        "git stash",
+        "git stash push -m 'wip: debug logging'",
+        "git stash pop"
+      ],
+      "expected_output": "Saved working directory and index state ...",
+      "how_to_interpret_output": "The working tree becomes clean. git stash list shows the stack of stashes. pop reapplies the most recent and removes it from the stack.",
+      "real_world_incidents": [
+        "Stashing debug changes so a clean pull could be performed on a shared server.",
+        "Recovering work that would otherwise have been lost when switching branches under time pressure.",
+        "Accidentally dropping a stash that contained important local fixes."
+      ],
+      "common_mistakes": [
+        "Stashing and then forgetting the stash exists.",
+        "Using git stash drop on the wrong entry.",
+        "Stashing untracked files without -u and losing them."
+      ],
+      "what_to_check_before": [
+        "git status to know exactly what will be stashed."
+      ],
+      "what_to_check_after": [
+        "git status should now be clean.",
+        "When ready → git stash pop or git stash apply",
+        "git stash list to confirm what remains"
+      ],
+      "related_commands": ["git status", "git checkout", "git stash list", "git stash show"],
+      "best_practices": [
+        "Always add a message with -m so you can identify the stash later.",
+        "Prefer git stash apply over pop if you want to keep the stash as a backup until you are sure."
+      ],
+      "interview_question": "How do you stash both tracked and untracked files?",
+      "interview_answer": "git stash -u (or git stash --include-untracked)",
+      "importance": 7,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["stash", "working-tree", "wip"]
+    },
+    {
+      "id": 9,
+      "title": "Undo the last commit while keeping changes",
+      "command": "git reset",
+      "summary": "Moves HEAD (and optionally the index and working tree) to a different commit.",
+      "problem": "I committed too early, committed on the wrong branch, or need to unstage changes. I want to undo the commit but keep the work.",
+      "why_this_command": "The primary tool for safely rewriting local history before it has been pushed. Essential for recovering from 'oops' commits.",
+      "thinking_process": [
+        "I just made a commit that should not have been made yet, or it contains the wrong files.",
+        "git reset --soft HEAD~1 undoes the commit but leaves everything staged.",
+        "git reset HEAD~1 (mixed) undoes the commit and unstages but keeps the files modified."
+      ],
+      "syntax": "git reset [--soft|--mixed|--hard] <commit>",
+      "examples": [
+        "git reset --soft HEAD~1",
+        "git reset HEAD~1",
+        "git reset --hard origin/main"
+      ],
+      "expected_output": "Usually silent; working tree and index change according to the mode.",
+      "how_to_interpret_output": "After --soft the changes remain staged. After mixed (default) they become unstaged. After --hard they are discarded entirely.",
+      "real_world_incidents": [
+        "Undoing a commit that accidentally included a secret before it was pushed.",
+        "Moving a commit from a feature branch back to unstaged changes so it could be recommitted correctly.",
+        "Hard-resetting a deploy host to the exact origin/main state after manual experimentation."
+      ],
+      "common_mistakes": [
+        "Using --hard and permanently losing uncommitted work.",
+        "Resetting commits that have already been pushed and then force-pushing without coordination.",
+        "Confusing soft/mixed/hard modes."
+      ],
+      "what_to_check_before": [
+        "Confirm the commits have not been pushed, or that a force-push is acceptable.",
+        "git status and git log -3 to know exactly what will be affected."
+      ],
+      "what_to_check_after": [
+        "git status and git log to verify the new state.",
+        "If you need the changes again → they should still be in the working tree (unless --hard)."
+      ],
+      "related_commands": ["git revert", "git status", "git log", "git reflog"],
+      "best_practices": [
+        "Prefer --soft or mixed for local recovery. Use --hard only when you are certain the changes are disposable.",
+        "Never reset public history without team agreement; use git revert instead."
+      ],
+      "interview_question": "What is the difference between git reset --soft HEAD~1 and git reset --hard HEAD~1?",
+      "interview_answer": "--soft moves HEAD back one commit but leaves the index and working tree exactly as they were (changes stay staged). --hard moves HEAD and also resets the index and working tree, discarding the changes completely.",
+      "importance": 8,
+      "frequency": "Weekly",
+      "difficulty": "Medium",
+      "tags": ["undo", "history", "recovery"]
+    },
+    {
+      "id": 10,
+      "title": "Create a new commit that undoes a previous one",
+      "command": "git revert",
+      "summary": "Generates a new commit that reverses the changes introduced by a specified commit.",
+      "problem": "A bad commit has already been pushed and shared. I need to undo its effects without rewriting history.",
+      "why_this_command": "The safe, history-preserving way to undo changes on shared branches. Preferred over reset for any commit that has left your machine.",
+      "thinking_process": [
+        "A commit on main is causing a production incident and has already been pulled by others.",
+        "git revert <hash> creates a new commit that applies the opposite diff.",
+        "I can then push the revert commit normally."
+      ],
+      "syntax": "git revert <commit> [-n] [--no-edit]",
+      "examples": [
+        "git revert abc1234",
+        "git revert -n abc1234",
+        "git revert HEAD"
+      ],
+      "expected_output": "Opens an editor for the revert commit message, then creates the new commit.",
+      "how_to_interpret_output": "A new commit appears on top of history whose diff is the inverse of the original. Conflicts may occur if later commits touched the same lines.",
+      "real_world_incidents": [
+        "Reverting a bad configuration change that had already been deployed and pulled by the whole team.",
+        "Reverting a merge commit that introduced a regression.",
+        "Quickly undoing a hotfix that itself introduced a new bug."
+      ],
+      "common_mistakes": [
+        "Trying to revert a merge commit without -m.",
+        "Reverting and then also resetting, creating confusion.",
+        "Not testing the reverted state before pushing."
+      ],
+      "what_to_check_before": [
+        "Confirm the exact commit hash with git log.",
+        "Ensure the working tree is clean."
+      ],
+      "what_to_check_after": [
+        "git log -2 and git show HEAD to verify the revert commit.",
+        "Run tests or deploy the reverted state.",
+        "Push the new commit."
+      ],
+      "related_commands": ["git reset", "git log", "git show", "git push"],
+      "best_practices": [
+        "Always prefer revert over reset for commits that have been pushed.",
+        "Use a clear commit message that references the original commit and the reason for the revert."
+      ],
+      "interview_question": "Why is git revert safer than git reset for undoing a commit that is already on origin/main?",
+      "interview_answer": "git revert adds a new commit that undoes the changes, preserving history and not requiring a force-push. git reset rewrites history and forces everyone else to recover, which is dangerous on shared branches.",
+      "importance": 8,
+      "frequency": "Weekly",
+      "difficulty": "Medium",
+      "tags": ["undo", "safe", "shared-history"]
+    },
+    {
+      "id": 11,
+      "title": "Inspect a specific commit or object",
+      "command": "git show",
+      "summary": "Shows the metadata and diff of a commit, or the contents of any Git object.",
+      "problem": "What exactly did this commit change? What is the full message and author information?",
+      "why_this_command": "The fastest way to examine a single commit in detail during a regression or code review under pressure.",
+      "thinking_process": [
+        "git log identified a suspicious commit hash.",
+        "git show <hash> displays the full message and the complete diff.",
+        "I can decide whether to revert, cherry-pick, or dig further."
+      ],
+      "syntax": "git show [<commit>] [--stat] [--name-only]",
+      "examples": [
+        "git show",
+        "git show abc1234",
+        "git show --stat HEAD~1"
+      ],
+      "expected_output": "Commit header (author, date, message) followed by the full unified diff",
+      "how_to_interpret_output": "Read the message first, then the diff. --stat gives a high-level file-change summary when the full diff is too large.",
+      "real_world_incidents": [
+        "Confirming that a commit only touched the expected files before deciding to revert.",
+        "Finding a secret that had been committed by examining the diff.",
+        "Understanding the exact change that caused a test failure."
+      ],
+      "common_mistakes": [
+        "Running git show without a hash and assuming it shows something other than HEAD.",
+        "Not using --stat first on large commits and getting flooded with output."
+      ],
+      "what_to_check_before": [
+        "Have the commit hash from git log or a CI failure."
+      ],
+      "what_to_check_after": [
+        "If the change is bad → git revert",
+        "If more context is needed → git log -p or git blame on the affected files"
+      ],
+      "related_commands": ["git log", "git diff", "git blame", "git revert"],
+      "best_practices": [
+        "Use git show --stat <hash> first for large commits.",
+        "Combine with git log --oneline to move quickly between candidates."
+      ],
+      "interview_question": "How do you see both the commit message and the full diff of the previous commit?",
+      "interview_answer": "git show HEAD~1",
+      "importance": 7,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["inspect", "commit", "diff"]
+    },
+    {
+      "id": 12,
+      "title": "Recover lost commits or find previous HEAD positions",
+      "command": "git reflog",
+      "summary": "Shows a log of where HEAD and branch tips have pointed, including commits that are no longer reachable.",
+      "problem": "I accidentally reset, rebased, or deleted a branch and need to recover commits that seem gone.",
+      "why_this_command": "The safety net for almost every destructive Git operation. If a commit was ever checked out or committed locally, reflog can usually find it.",
+      "thinking_process": [
+        "I ran a hard reset or deleted a branch and now the commits appear lost.",
+        "git reflog lists every recent movement of HEAD.",
+        "I can check out or reset back to the reflog entry that still has my work."
+      ],
+      "syntax": "git reflog [show] [<ref>]",
+      "examples": [
+        "git reflog",
+        "git reflog show main",
+        "git checkout HEAD@{2}"
+      ],
+      "expected_output": "HEAD@{0}: commit: message\nHEAD@{1}: reset: moving to ...\n etc.",
+      "how_to_interpret_output": "Each line is a previous position of HEAD. The higher the number, the older the entry. Find the entry just before the destructive action and recover from there.",
+      "real_world_incidents": [
+        "Recovering commits after an accidental git reset --hard.",
+        "Restoring a branch that was deleted locally before it was pushed.",
+        "Finding the previous HEAD after a bad rebase."
+      ],
+      "common_mistakes": [
+        "Waiting too long; reflog entries expire (default 90 days for reachable, 30 for unreachable).",
+        "Confusing reflog with the regular commit log.",
+        "Checking out a reflog entry and then losing it again by not creating a branch."
+      ],
+      "what_to_check_before": [
+        "Act quickly after realizing the mistake."
+      ],
+      "what_to_check_after": [
+        "Once the good commit is identified → git branch recover/<name> <hash> or git reset --hard <hash>",
+        "Verify with git log that the work is back."
+      ],
+      "related_commands": ["git reset", "git checkout", "git branch", "git fsck"],
+      "best_practices": [
+        "Treat reflog as your undo history for Git itself.",
+        "As soon as you recover a commit, create a named branch so it does not become unreachable again."
+      ],
+      "interview_question": "You just ran git reset --hard HEAD~3 and realized you needed those commits. How do you get them back?",
+      "interview_answer": "Run git reflog, find the entry that pointed to the commit before the reset (usually HEAD@{1}), then git reset --hard HEAD@{1} or create a branch from that hash.",
+      "importance": 7,
+      "frequency": "Monthly",
+      "difficulty": "Medium",
+      "tags": ["recovery", "reflog", "undo"]
+    }
+  ]
+}

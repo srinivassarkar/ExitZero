@@ -1,0 +1,1232 @@
+{
+  "tool": "kubernetes",
+  "version": "1.0",
+  "description": "Production Kubernetes troubleshooting runbook focused on the commands that resolve 90% of day-to-day pod, node, service, and control-plane incidents.",
+  "totalCommands": 25,
+  "commands": [
+    {
+      "id": 1,
+      "title": "List pods and their status",
+      "command": "kubectl get pods",
+      "summary": "Shows pods in the current namespace with ready status, restarts, and age.",
+      "problem": "Is the application running? Are pods pending, crashing, or not ready?",
+      "why_this_command": "The single most used first command in any Kubernetes incident. Almost every investigation starts by seeing pod state.",
+      "thinking_process": [
+        "Users or monitoring report the service is down or degraded.",
+        "kubectl get pods -o wide (or -A) shows whether pods are Running, Pending, CrashLoopBackOff, ImagePullBackOff, etc.",
+        "From the STATUS and READY columns I decide the next command."
+      ],
+      "syntax": "kubectl get pods [-n NAMESPACE] [-o wide] [-A] [--watch]",
+      "examples": [
+        "kubectl get pods",
+        "kubectl get pods -n production -o wide",
+        "kubectl get pods -A --field-selector=status.phase!=Running"
+      ],
+      "expected_output": "NAME READY STATUS RESTARTS AGE",
+      "how_to_interpret_output": "READY 1/1 and STATUS Running is healthy. CrashLoopBackOff, ImagePullBackOff, Pending, OOMKilled, or 0/1 Ready are problems. High RESTARTS indicates instability. -o wide adds node and IP.",
+      "real_world_incidents": [
+        "Pods stuck in ImagePullBackOff after a bad image tag was deployed.",
+        "Multiple pods in CrashLoopBackOff after a configuration change.",
+        "Pods Pending because the cluster had insufficient CPU/memory."
+      ],
+      "common_mistakes": [
+        "Looking only in the default namespace and missing the real workload.",
+        "Ignoring the READY column (Running but 0/1 means probes are failing).",
+        "Not using -o wide when node placement matters."
+      ],
+      "what_to_check_before": [
+        "Know the correct namespace (or use -A)."
+      ],
+      "what_to_check_after": [
+        "If CrashLoopBackOff / Error → kubectl logs and kubectl describe",
+        "If Pending → kubectl describe pod and check events / node resources",
+        "If ImagePullBackOff → check image name, tag, and pull secrets"
+      ],
+      "related_commands": ["kubectl describe pod", "kubectl logs", "kubectl get nodes", "kubectl get events"],
+      "best_practices": [
+        "Always start with kubectl get pods -o wide in the target namespace.",
+        "Use --watch during rolling updates or recovery."
+      ],
+      "interview_question": "A pod shows STATUS Running but READY 0/1. What does that usually mean?",
+      "interview_answer": "The container is running but the readiness probe is failing, so the pod is not receiving traffic. Next step is kubectl describe pod and kubectl logs to see why the probe fails.",
+      "importance": 10,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["pods", "status", "first-command"]
+    },
+    {
+      "id": 2,
+      "title": "Describe a pod (events and details)",
+      "command": "kubectl describe pod",
+      "summary": "Shows detailed pod information including events, conditions, probes, volumes, and node assignment.",
+      "problem": "Why is the pod pending, crashing, or not ready? What do the recent events say?",
+      "why_this_command": "Events are the most valuable signal for Pending, ImagePullBackOff, FailedScheduling, and probe failures. describe surfaces them together with the full spec.",
+      "thinking_process": [
+        "kubectl get pods showed a bad status.",
+        "kubectl describe pod <name> reveals the Events section and Conditions.",
+        "The last few events usually contain the exact reason."
+      ],
+      "syntax": "kubectl describe pod NAME [-n NAMESPACE]",
+      "examples": [
+        "kubectl describe pod api-7d9f8b6c5-x2k9p",
+        "kubectl describe pod -n production api-7d9f8b6c5-x2k9p",
+        "kubectl describe pod -l app=api"
+      ],
+      "expected_output": "Name, Namespace, Node, Status, Containers, Conditions, Volumes, Events",
+      "how_to_interpret_output": "Scroll to Events at the bottom. FailedScheduling, FailedMount, Pulling/Failed, Unhealthy probe messages are high-signal. Also check Liveness/Readiness probe configuration and resource requests/limits.",
+      "real_world_incidents": [
+        "FailedScheduling because no node had enough allocatable memory.",
+        "FailedMount because a Secret or ConfigMap was missing.",
+        "Readiness probe failing because the application took longer to start than the initialDelaySeconds."
+      ],
+      "common_mistakes": [
+        "Only reading the top of the output and missing the Events section.",
+        "Describing a pod that has already been replaced by the ReplicaSet.",
+        "Ignoring the node name when the problem is node-specific."
+      ],
+      "what_to_check_before": [
+        "Have the exact pod name from kubectl get pods."
+      ],
+      "what_to_check_after": [
+        "If events mention image pull → check image and imagePullSecrets",
+        "If events mention scheduling → check node resources and taints",
+        "If probes failing → kubectl logs and adjust probe settings"
+      ],
+      "related_commands": ["kubectl get pods", "kubectl logs", "kubectl get events", "kubectl get nodes"],
+      "best_practices": [
+        "Always read the Events section completely before changing anything.",
+        "Use kubectl describe on the new pod after a restart to confirm the problem is gone."
+      ],
+      "interview_question": "Where in kubectl describe pod output do you look first when a pod is stuck in Pending?",
+      "interview_answer": "The Events section at the bottom. It usually contains the FailedScheduling message with the exact reason (insufficient CPU/memory, taints, affinity, etc.).",
+      "importance": 10,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["pods", "events", "debugging"]
+    },
+    {
+      "id": 3,
+      "title": "View container logs",
+      "command": "kubectl logs",
+      "summary": "Retrieves logs from a container in a pod. Supports previous instance, follow, and tail.",
+      "problem": "The pod is crashing or misbehaving. What did the application or container print?",
+      "why_this_command": "Application errors, stack traces, and startup failures almost always appear in the logs. Essential for CrashLoopBackOff and runtime errors.",
+      "thinking_process": [
+        "Pod is in CrashLoopBackOff or returning errors.",
+        "kubectl logs <pod> shows the current container output.",
+        "If the container has already restarted, kubectl logs --previous shows the last crash."
+      ],
+      "syntax": "kubectl logs POD [-c CONTAINER] [-f] [--tail N] [--previous]",
+      "examples": [
+        "kubectl logs api-7d9f8b6c5-x2k9p",
+        "kubectl logs -f --tail 100 api-7d9f8b6c5-x2k9p",
+        "kubectl logs --previous api-7d9f8b6c5-x2k9p"
+      ],
+      "expected_output": "Container stdout/stderr lines",
+      "how_to_interpret_output": "Look for ERROR, panic, exception, connection refused, or configuration messages. --previous is critical when the current container has not yet logged the failure. Silence may mean the process is hung before logging.",
+      "real_world_incidents": [
+        "Application crashed on missing environment variable visible only in --previous logs.",
+        "OOM kill left incomplete logs; the last lines showed rising memory usage.",
+        "Readiness failures caused by a downstream dependency timeout visible in the logs."
+      ],
+      "common_mistakes": [
+        "Forgetting --previous when the container has already restarted.",
+        "Not specifying -c on multi-container pods and getting the wrong container’s logs.",
+        "Following logs on a high-volume pod without --tail and flooding the terminal."
+      ],
+      "what_to_check_before": [
+        "Have the pod name; for multi-container pods know the container name."
+      ],
+      "what_to_check_after": [
+        "If the error is clear → fix the image, config, or dependency and roll out.",
+        "If still unclear → kubectl describe and kubectl get events"
+      ],
+      "related_commands": ["kubectl describe pod", "kubectl get pods", "kubectl exec", "kubectl get events"],
+      "best_practices": [
+        "Always try kubectl logs --previous on CrashLoopBackOff pods.",
+        "Prefer structured logging to stdout so kubectl logs remains useful."
+      ],
+      "interview_question": "A pod is in CrashLoopBackOff. How do you see the logs from the crashed container instance?",
+      "interview_answer": "kubectl logs --previous <pod-name> (add -c <container> if there are multiple containers).",
+      "importance": 10,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["logs", "crash", "debugging"]
+    },
+    {
+      "id": 4,
+      "title": "List nodes and their status",
+      "command": "kubectl get nodes",
+      "summary": "Shows cluster nodes with status, roles, age, and version. -o wide adds IPs and OS/image info.",
+      "problem": "Are nodes Ready? Is a node NotReady or under pressure? Is the workload scheduled onto healthy nodes?",
+      "why_this_command": "Node health is a top-level dependency. Many pod Pending or eviction problems originate from node condition changes.",
+      "thinking_process": [
+        "Pods are Pending or were evicted.",
+        "kubectl get nodes shows whether nodes are Ready and their capacity pressure conditions.",
+        "I then describe the problematic node or check allocatable resources."
+      ],
+      "syntax": "kubectl get nodes [-o wide] [--sort-by=...]",
+      "examples": [
+        "kubectl get nodes",
+        "kubectl get nodes -o wide",
+        "kubectl get nodes -l node-role.kubernetes.io/worker"
+      ],
+      "expected_output": "NAME STATUS ROLES AGE VERSION",
+      "how_to_interpret_output": "STATUS Ready is required. NotReady, SchedulingDisabled, or conditions such as MemoryPressure / DiskPressure / PIDPressure indicate problems. -o wide shows internal/external IPs and OS image.",
+      "real_world_incidents": [
+        "Node went NotReady after kubelet lost contact with the API server.",
+        "DiskPressure caused pods to be evicted from a node.",
+        "New nodes joined but lacked the required taints/labels for the workload."
+      ],
+      "common_mistakes": [
+        "Assuming all nodes are schedulable just because they are Ready (check taints).",
+        "Not noticing a node is cordoned (SchedulingDisabled).",
+        "Ignoring version skew between nodes and control plane."
+      ],
+      "what_to_check_before": [],
+      "what_to_check_after": [
+        "If NotReady → kubectl describe node and check kubelet logs on the node",
+        "If pressure conditions → free disk/memory or scale the node group",
+        "If pods Pending → check taints, affinity, and allocatable resources"
+      ],
+      "related_commands": ["kubectl describe node", "kubectl get pods -o wide", "kubectl top nodes"],
+      "best_practices": [
+        "Include kubectl get nodes -o wide in the initial triage of any cluster-wide incident.",
+        "Monitor node conditions; do not wait for pods to start failing."
+      ],
+      "interview_question": "What does a node STATUS of NotReady mean and what do you check next?",
+      "interview_answer": "The kubelet is not reporting a Ready condition, usually because of network issues to the control plane, kubelet crash, or runtime problems. Next: kubectl describe node and inspect kubelet logs on that node.",
+      "importance": 9,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["nodes", "cluster", "health"]
+    },
+    {
+      "id": 5,
+      "title": "Describe a node",
+      "command": "kubectl describe node",
+      "summary": "Shows node capacity, allocatable resources, conditions, taints, allocated pods, and events.",
+      "problem": "Why are pods not scheduling onto a node? Is the node under resource pressure or tainted?",
+      "why_this_command": "Reveals the exact reasons a node is unschedulable or unhealthy: taints, pressure conditions, and current resource allocation.",
+      "thinking_process": [
+        "Pods are Pending or a node is NotReady.",
+        "kubectl describe node <name> shows Conditions, Taints, and Allocated resources.",
+        "The combination tells me whether to free resources, remove a taint, or repair the node."
+      ],
+      "syntax": "kubectl describe node NAME",
+      "examples": [
+        "kubectl describe node worker-1",
+        "kubectl describe node -l topology.kubernetes.io/zone=us-east-1a"
+      ],
+      "expected_output": "Name, Conditions, Capacity, Allocatable, System Info, Taints, Non-terminated Pods, Events",
+      "how_to_interpret_output": "Conditions such as Ready=False, MemoryPressure=True are critical. Taints explain why pods are not scheduling. Allocated resources vs Allocatable show how full the node is. Events often contain kubelet or runtime errors.",
+      "real_world_incidents": [
+        "Node had a NoSchedule taint left from a previous maintenance.",
+        "Allocatable memory was exhausted by system daemons and existing pods.",
+        "DiskPressure condition caused by a full container runtime disk."
+      ],
+      "common_mistakes": [
+        "Looking only at Capacity and ignoring Allocatable (the real scheduling number).",
+        "Missing taints that prevent scheduling.",
+        "Not correlating with the pods listed under Non-terminated Pods."
+      ],
+      "what_to_check_before": [
+        "Have the node name from kubectl get nodes or from a Pending pod’s events."
+      ],
+      "what_to_check_after": [
+        "If tainted → kubectl taint node ... to remove if appropriate",
+        "If pressure → free resources or drain and repair",
+        "If NotReady → investigate kubelet and container runtime on the node"
+      ],
+      "related_commands": ["kubectl get nodes", "kubectl get pods -o wide", "kubectl top node", "kubectl taint"],
+      "best_practices": [
+        "Always compare Allocatable vs requested resources when diagnosing Pending pods.",
+        "Document intentional taints so they are not removed during incidents."
+      ],
+      "interview_question": "A pod is Pending with FailedScheduling and the message mentions a taint. How do you confirm?",
+      "interview_answer": "kubectl describe node <node> and look at the Taints section. The pod’s tolerations must match or the taint must be removed.",
+      "importance": 8,
+      "frequency": "Weekly",
+      "difficulty": "Medium",
+      "tags": ["nodes", "scheduling", "taints"]
+    },
+    {
+      "id": 6,
+      "title": "List and inspect services",
+      "command": "kubectl get svc / kubectl describe svc",
+      "summary": "Shows Service objects, their ClusterIP/ExternalIP, ports, and selectors. describe adds endpoints information.",
+      "problem": "Service is unreachable. Is the Service defined correctly? Does it have endpoints? Is the selector matching pods?",
+      "why_this_command": "Most 'service down' issues at the Kubernetes networking layer are selector mismatches or missing endpoints. These commands expose that immediately.",
+      "thinking_process": [
+        "Application cannot be reached via its Service DNS or IP.",
+        "kubectl get svc and kubectl describe svc show the selector and the Endpoints.",
+        "If Endpoints are empty the selector is not matching any ready pods."
+      ],
+      "syntax": "kubectl get svc [-n NS] [-o wide]; kubectl describe svc NAME",
+      "examples": [
+        "kubectl get svc",
+        "kubectl get svc -n production -o wide",
+        "kubectl describe svc api"
+      ],
+      "expected_output": "NAME TYPE CLUSTER-IP EXTERNAL-IP PORT(S) AGE plus Endpoints from describe",
+      "how_to_interpret_output": "Empty Endpoints list means no pods match the selector or none are Ready. TYPE LoadBalancer pending an EXTERNAL-IP indicates cloud-provider problems. Port mappings must match what the containers actually listen on.",
+      "real_world_incidents": [
+        "Service selector still pointed at the old app label after a rename.",
+        "All pods were not Ready so the Service had zero endpoints.",
+        "LoadBalancer stayed in pending because of a cloud quota or annotation issue."
+      ],
+      "common_mistakes": [
+        "Checking the Service but not the Endpoints object.",
+        "Assuming ClusterIP reachability from outside the cluster.",
+        "Mismatch between Service port and container port."
+      ],
+      "what_to_check_before": [
+        "Know the Service name and namespace."
+      ],
+      "what_to_check_after": [
+        "If no endpoints → fix pod labels or readiness probes",
+        "If ports wrong → correct the Service or container port",
+        "Test with kubectl run curl or from another pod"
+      ],
+      "related_commands": ["kubectl get endpoints", "kubectl get pods --show-labels", "kubectl describe pod"],
+      "best_practices": [
+        "Always verify Endpoints when a Service is unreachable.",
+        "Keep Service selectors and pod labels under the same source of truth (Helm/Kustomize)."
+      ],
+      "interview_question": "kubectl describe svc shows Endpoints: <none>. What are the two most common causes?",
+      "interview_answer": "No pods match the Service selector, or matching pods exist but are not Ready (readiness probe failing).",
+      "importance": 9,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["services", "networking", "endpoints"]
+    },
+    {
+      "id": 7,
+      "title": "Execute a command inside a running pod",
+      "command": "kubectl exec",
+      "summary": "Runs a command in a container within a pod, commonly used to open a shell or run diagnostics.",
+      "problem": "I need to inspect the filesystem, environment, or network from inside the pod.",
+      "why_this_command": "The standard way to get a shell or run one-off tools in a running container without rebuilding the image.",
+      "thinking_process": [
+        "Logs and describe did not fully explain the problem.",
+        "kubectl exec -it <pod> -- sh lets me examine the environment from inside.",
+        "I can test DNS, connectivity, config files, and processes."
+      ],
+      "syntax": "kubectl exec [-it] POD [-c CONTAINER] -- COMMAND",
+      "examples": [
+        "kubectl exec -it api-7d9f8b6c5-x2k9p -- sh",
+        "kubectl exec api-7d9f8b6c5-x2k9p -- env",
+        "kubectl exec api-7d9f8b6c5-x2k9p -- curl -s localhost:8080/health"
+      ],
+      "expected_output": "Interactive shell or the command’s stdout",
+      "how_to_interpret_output": "Treat it as a normal process inside the container. Check files, env, listening ports, and outbound connectivity. The exit code is returned to the client.",
+      "real_world_incidents": [
+        "Confirmed a mounted ConfigMap had the wrong content inside the pod.",
+        "Tested that the pod could resolve and reach the database Service.",
+        "Discovered a missing CA certificate that caused TLS failures."
+      ],
+      "common_mistakes": [
+        "Omitting -- before the command.",
+        "Trying to exec into a completed or CrashLoop pod that has no running container.",
+        "Using bash when the image only contains sh."
+      ],
+      "what_to_check_before": [
+        "Pod must have at least one running container.",
+        "Know the container name if there are multiple."
+      ],
+      "what_to_check_after": [
+        "Do not leave interactive sessions open unnecessarily.",
+        "Filesystem changes are lost on restart unless on a volume."
+      ],
+      "related_commands": ["kubectl logs", "kubectl describe pod", "kubectl cp", "kubectl port-forward"],
+      "best_practices": [
+        "Prefer non-interactive exec for scripted checks.",
+        "Use kubectl debug (ephemeral containers) when the image is distroless or locked down."
+      ],
+      "interview_question": "How do you open an interactive shell in a specific container of a multi-container pod?",
+      "interview_answer": "kubectl exec -it <pod> -c <container> -- sh",
+      "importance": 8,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["exec", "shell", "debugging"]
+    },
+    {
+      "id": 8,
+      "title": "List recent cluster events",
+      "command": "kubectl get events",
+      "summary": "Shows Kubernetes events in the namespace (or cluster) ordered by time, useful for scheduling, pull, and mount failures.",
+      "problem": "Something changed or failed and I need the chronological record of what Kubernetes reported.",
+      "why_this_command": "Events capture FailedScheduling, Pulling, FailedMount, Killing, and many other signals that do not always appear in pod logs.",
+      "thinking_process": [
+        "Pods are failing or were restarted and the reason is not obvious from logs.",
+        "kubectl get events --sort-by='.lastTimestamp' shows the recent timeline.",
+        "I can filter by involved object if needed."
+      ],
+      "syntax": "kubectl get events [-n NS] [--sort-by='.lastTimestamp'] [--field-selector ...]",
+      "examples": [
+        "kubectl get events --sort-by='.lastTimestamp'",
+        "kubectl get events -n production --field-selector involvedObject.name=api-7d9f8b6c5-x2k9p",
+        "kubectl get events -A --sort-by='.lastTimestamp' | tail -30"
+      ],
+      "expected_output": "LAST SEEN TYPE REASON OBJECT MESSAGE",
+      "how_to_interpret_output": "Focus on Warning type events. FailedScheduling, BackOff, FailedMount, Unhealthy are high-signal. Correlate timestamps with the start of the incident.",
+      "real_world_incidents": [
+        "Burst of FailedScheduling events after a node group scaled down.",
+        "FailedMount events revealed a missing Secret.",
+        "Frequent Killing events showed the OOM killer at work."
+      ],
+      "common_mistakes": [
+        "Not sorting by timestamp and reading events out of order.",
+        "Looking only in one namespace when the problem is cluster-scoped.",
+        "Ignoring Normal events that still contain useful context (e.g., successful pulls)."
+      ],
+      "what_to_check_before": [
+        "Have an approximate time window for the incident."
+      ],
+      "what_to_check_after": [
+        "Dive into the specific pod or node mentioned in the events with describe/logs."
+      ],
+      "related_commands": ["kubectl describe pod", "kubectl describe node", "kubectl get pods"],
+      "best_practices": [
+        "Use --sort-by='.lastTimestamp' by default.",
+        "During large incidents, stream events with --watch."
+      ],
+      "interview_question": "How do you list the most recent events in a namespace in chronological order?",
+      "interview_answer": "kubectl get events -n <namespace> --sort-by='.lastTimestamp'",
+      "importance": 8,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["events", "timeline", "debugging"]
+    },
+    {
+      "id": 9,
+      "title": "Show resource usage of pods and nodes",
+      "command": "kubectl top",
+      "summary": "Displays current CPU and memory usage for pods or nodes (requires metrics-server).",
+      "problem": "Which pods or nodes are consuming the most CPU or memory? Is a pod close to its limit?",
+      "why_this_command": "Provides the live usage view needed to diagnose resource pressure, throttling, and noisy-neighbour problems.",
+      "thinking_process": [
+        "Nodes show pressure or pods are being throttled/OOMKilled.",
+        "kubectl top pods / top nodes shows the current consumers.",
+        "I can then compare against requests/limits and decide on scaling or limits changes."
+      ],
+      "syntax": "kubectl top pods|nodes [-n NS] [--containers] [--sort-by=cpu|memory]",
+      "examples": [
+        "kubectl top pods",
+        "kubectl top pods -n production --sort-by=memory",
+        "kubectl top nodes"
+      ],
+      "expected_output": "NAME CPU(cores) MEMORY(bytes) (and optionally LIMITS)",
+      "how_to_interpret_output": "Compare usage against the pod’s requests and limits (visible via describe or get pod -o yaml). High usage relative to limits predicts throttling or OOM. Node-level usage shows overall capacity pressure.",
+      "real_world_incidents": [
+        "One pod consuming all node memory and causing evictions.",
+        "CPU throttling of a latency-sensitive service because limits were too low.",
+        "Metrics-server missing, so top returned an error and forced fallback to other tools."
+      ],
+      "common_mistakes": [
+        "Assuming top works without metrics-server installed.",
+        "Looking at usage without knowing the configured limits.",
+        "Sorting only by CPU when the problem is memory."
+      ],
+      "what_to_check_before": [
+        "Confirm metrics-server is running if top fails."
+      ],
+      "what_to_check_after": [
+        "If a pod is near its limit → raise the limit or fix the application.",
+        "If a node is full → drain, scale the node group, or rebalance."
+      ],
+      "related_commands": ["kubectl describe pod", "kubectl get pod -o yaml", "kubectl describe node"],
+      "best_practices": [
+        "Always set memory limits for production workloads so OOM behaviour is predictable.",
+        "Use --sort-by to surface the top consumers quickly."
+      ],
+      "interview_question": "kubectl top pods fails with a metrics error. What does that usually mean?",
+      "interview_answer": "metrics-server is not installed, not running, or not reachable. Check for a metrics-server deployment and its logs.",
+      "importance": 8,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["resources", "cpu", "memory", "metrics"]
+    },
+    {
+      "id": 10,
+      "title": "Apply or create resources from manifests",
+      "command": "kubectl apply",
+      "summary": "Declaratively creates or updates resources from YAML/JSON files or directories.",
+      "problem": "I need to deploy or update an application, ConfigMap, Service, or other object in a controlled way.",
+      "why_this_command": "The standard declarative interface for production changes. Preferred over imperative create/edit for most workflows.",
+      "thinking_process": [
+        "A change needs to be rolled out.",
+        "kubectl apply -f <file> creates or updates the objects.",
+        "I then watch pods and events to confirm the change is healthy."
+      ],
+      "syntax": "kubectl apply -f FILE|DIR [-n NS] [--server-side] [--dry-run=client|server]",
+      "examples": [
+        "kubectl apply -f deployment.yaml",
+        "kubectl apply -f manifests/",
+        "kubectl apply -f deploy.yaml --dry-run=server"
+      ],
+      "expected_output": "resource/name created or configured",
+      "how_to_interpret_output": "created means the object did not exist; configured means it was updated. Errors about validation or conflicts must be resolved before retrying. Always follow with a status check.",
+      "real_world_incidents": [
+        "Applying a bad ConfigMap caused a mass CrashLoop; quick apply of the previous version recovered service.",
+        "Server-side apply conflicts during concurrent updates by different controllers.",
+        "Dry-run caught a validation error before it hit the cluster."
+      ],
+      "common_mistakes": [
+        "Applying without reviewing the diff first.",
+        "Forgetting -n and applying into the wrong namespace.",
+        "Applying a file that contains a mix of cluster-scoped and namespaced objects without care."
+      ],
+      "what_to_check_before": [
+        "Review the manifest and prefer --dry-run=server for risky changes.",
+        "Ensure you are in the correct context and namespace."
+      ],
+      "what_to_check_after": [
+        "kubectl get and kubectl rollout status / kubectl describe to confirm health.",
+        "Watch events for unexpected warnings."
+      ],
+      "related_commands": ["kubectl diff", "kubectl get", "kubectl rollout status", "kubectl delete"],
+      "best_practices": [
+        "Always prefer apply over create for objects you manage declaratively.",
+        "Use kubectl diff -f before apply on production changes when possible."
+      ],
+      "interview_question": "What is the practical difference between kubectl apply and kubectl create?",
+      "interview_answer": "create fails if the object already exists. apply creates or updates (declarative merge) and is the preferred tool for ongoing management of resources.",
+      "importance": 9,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["deploy", "declarative", "manifests"]
+    },
+    {
+      "id": 11,
+      "title": "Delete resources",
+      "command": "kubectl delete",
+      "summary": "Removes pods, deployments, services, or other objects by name, label, or file.",
+      "problem": "A resource must be removed—failed pods, old deployments, or an entire application stack.",
+      "why_this_command": "Necessary for cleanup, forced recreation, and recovery when objects are in a bad terminal state.",
+      "thinking_process": [
+        "A pod is stuck terminating or an old deployment must be removed.",
+        "kubectl delete pod/deploy/... removes it.",
+        "I then verify with get and, if needed, recreate."
+      ],
+      "syntax": "kubectl delete TYPE NAME | -l label | -f FILE [--grace-period=N] [--force]",
+      "examples": [
+        "kubectl delete pod api-7d9f8b6c5-x2k9p",
+        "kubectl delete -f deployment.yaml",
+        "kubectl delete pods -l app=api --force --grace-period=0"
+      ],
+      "expected_output": "resource \"name\" deleted",
+      "how_to_interpret_output": "Success prints deleted. Pods stuck in Terminating may need --force --grace-period=0 as a last resort. Deleting a Deployment also cascades to its ReplicaSets and pods by default.",
+      "real_world_incidents": [
+        "Force-deleting a pod stuck in Terminating because of a finalizer or unreachable node.",
+        "Removing a failed Job that was blocking a CronJob.",
+        "Deleting a misconfigured Service that was intercepting traffic."
+      ],
+      "common_mistakes": [
+        "Using --force too quickly and skipping graceful termination.",
+        "Deleting a Deployment when only a single pod needed to be recreated.",
+        "Forgetting that delete -f removes everything defined in the file."
+      ],
+      "what_to_check_before": [
+        "Confirm the exact object and namespace.",
+        "Prefer graceful deletion first."
+      ],
+      "what_to_check_after": [
+        "kubectl get to confirm the object is gone.",
+        "If it was a workload, ensure the controller recreates a healthy replacement if expected."
+      ],
+      "related_commands": ["kubectl get", "kubectl apply", "kubectl patch"],
+      "best_practices": [
+        "Avoid --force unless the pod has been Terminating for a long time and the node is confirmed unhealthy.",
+        "Prefer deleting via the owning controller (Deployment/StatefulSet) rather than individual pods when possible."
+      ],
+      "interview_question": "A pod is stuck in Terminating for 30 minutes. What is a safe escalation path?",
+      "interview_answer": "First check whether the node is NotReady or the pod has finalizers. If the node is gone and graceful deletion is impossible, use kubectl delete pod <name> --force --grace-period=0 as a last resort.",
+      "importance": 7,
+      "frequency": "Weekly",
+      "difficulty": "Medium",
+      "tags": ["delete", "cleanup", "terminating"]
+    },
+    {
+      "id": 12,
+      "title": "Watch rollout status of a deployment",
+      "command": "kubectl rollout status",
+      "summary": "Blocks until a Deployment (or DaemonSet/StatefulSet) rollout finishes or times out, printing progress.",
+      "problem": "I just applied a new version. Is the rollout succeeding or stuck?",
+      "why_this_command": "Gives immediate feedback on whether a Deployment update is progressing, waiting, or failed, without manually polling pods.",
+      "thinking_process": [
+        "A new image or config was applied to a Deployment.",
+        "kubectl rollout status deployment/<name> waits and reports progress.",
+        "If it stalls I investigate the new pods with describe/logs."
+      ],
+      "syntax": "kubectl rollout status deployment/NAME [-n NS] [--timeout=DURATION]",
+      "examples": [
+        "kubectl rollout status deployment/api",
+        "kubectl rollout status deployment/api --timeout=3m",
+        "kubectl rollout status daemonset/fluentd"
+      ],
+      "expected_output": "Waiting for deployment spec update to be observed... / deployment successfully rolled out",
+      "how_to_interpret_output": "Successful completion prints a clear success message. Timeout or stuck messages mean new pods are not becoming Ready; switch to get pods / describe / logs on the new ReplicaSet.",
+      "real_world_incidents": [
+        "Rollout stalled because the new pods failed readiness probes.",
+        "Timeout revealed an image pull problem on only some nodes.",
+        "Successful status gave confidence to proceed with traffic switching."
+      ],
+      "common_mistakes": [
+        "Not setting a timeout and waiting indefinitely.",
+        "Watching the wrong Deployment name.",
+        "Assuming success means the application is healthy rather than just that pods are Ready."
+      ],
+      "what_to_check_before": [
+        "Confirm the Deployment name and that an update was actually triggered."
+      ],
+      "what_to_check_after": [
+        "On failure → kubectl get pods -l app=... and describe/logs the new pods",
+        "On success → still verify application-level health if possible"
+      ],
+      "related_commands": ["kubectl get pods", "kubectl describe pod", "kubectl rollout history", "kubectl rollout undo"],
+      "best_practices": [
+        "Always use a timeout in scripts and CI.",
+        "Pair with kubectl rollout history so you can undo quickly if needed."
+      ],
+      "interview_question": "How do you wait for a Deployment to finish rolling out and fail the script if it takes longer than two minutes?",
+      "interview_answer": "kubectl rollout status deployment/<name> --timeout=2m",
+      "importance": 8,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["rollout", "deploy", "status"]
+    },
+    {
+      "id": 13,
+      "title": "Undo a deployment rollout",
+      "command": "kubectl rollout undo",
+      "summary": "Reverts a Deployment (or DaemonSet/StatefulSet) to a previous revision.",
+      "problem": "The latest rollout introduced a regression. I need to go back to the previous known-good version quickly.",
+      "why_this_command": "Fastest safe way to roll back a Deployment without manually editing the image or restoring manifests from git under time pressure.",
+      "thinking_process": [
+        "New version is crashing or returning errors.",
+        "kubectl rollout undo deployment/<name> reverts to the prior revision.",
+        "I then watch status and confirm recovery."
+      ],
+      "syntax": "kubectl rollout undo deployment/NAME [--to-revision=N]",
+      "examples": [
+        "kubectl rollout undo deployment/api",
+        "kubectl rollout undo deployment/api --to-revision=3",
+        "kubectl rollout history deployment/api"
+      ],
+      "expected_output": "deployment.apps/api rolled back",
+      "how_to_interpret_output": "Success message means the rollback was initiated. Immediately run rollout status and check pods to confirm the old version is coming up healthy.",
+      "real_world_incidents": [
+        "Bad image tag caused CrashLoop; undo restored the previous image within minutes.",
+        "Config change broke readiness; undo brought the prior ConfigMap reference back.",
+        "Rollback to a specific older revision after multiple bad deploys."
+      ],
+      "common_mistakes": [
+        "Undoing without checking rollout history and landing on an unexpected revision.",
+        "Forgetting that undo creates a new revision; history keeps growing.",
+        "Rolling back only the Deployment while related resources (ConfigMap, Service) also changed."
+      ],
+      "what_to_check_before": [
+        "kubectl rollout history deployment/<name> to see available revisions."
+      ],
+      "what_to_check_after": [
+        "kubectl rollout status and kubectl get pods",
+        "Verify application behaviour and consider a proper forward fix."
+      ],
+      "related_commands": ["kubectl rollout history", "kubectl rollout status", "kubectl get pods", "kubectl describe deploy"],
+      "best_practices": [
+        "Always inspect rollout history before undoing to a specific revision.",
+        "Treat undo as an emergency measure; follow up with a correct forward deployment."
+      ],
+      "interview_question": "How do you roll a Deployment back to a specific earlier revision?",
+      "interview_answer": "kubectl rollout history deployment/<name> to list revisions, then kubectl rollout undo deployment/<name> --to-revision=<N>.",
+      "importance": 8,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["rollback", "rollout", "recovery"]
+    },
+    {
+      "id": 14,
+      "title": "Port-forward a local port to a pod or service",
+      "command": "kubectl port-forward",
+      "summary": "Forwards a local port to a port on a pod or Service for temporary debugging access.",
+      "problem": "I need to reach an application or admin endpoint that is not exposed outside the cluster.",
+      "why_this_command": "Quick, secure way to get temporary access without changing Service type or Ingress.",
+      "thinking_process": [
+        "I need to inspect a pod’s HTTP endpoint or database from my laptop.",
+        "kubectl port-forward pod/<name> 8080:8080 creates a tunnel.",
+        "I can then curl localhost:8080 safely."
+      ],
+      "syntax": "kubectl port-forward TYPE/NAME LOCAL:REMOTE [-n NS]",
+      "examples": [
+        "kubectl port-forward pod/api-7d9f8b6c5-x2k9p 8080:8080",
+        "kubectl port-forward svc/api 8080:80",
+        "kubectl port-forward deployment/api 9000:8080"
+      ],
+      "expected_output": "Forwarding from 127.0.0.1:8080 -> 8080",
+      "how_to_interpret_output": "The process stays in the foreground and forwards traffic until interrupted. Connection refused on the local side usually means the target port inside the pod is wrong or the container is not listening.",
+      "real_world_incidents": [
+        "Accessing a closed admin UI during an incident without opening it to the world.",
+        "Debugging a database pod that had no external Service.",
+        "Verifying a fix on a single pod before rolling it out widely."
+      ],
+      "common_mistakes": [
+        "Forwarding to the wrong container port.",
+        "Leaving port-forward running and blocking the terminal or the local port.",
+        "Assuming port-forward works for UDP or for multiple pods load-balanced (it targets one pod)."
+      ],
+      "what_to_check_before": [
+        "Confirm the target pod is Running and the port is correct."
+      ],
+      "what_to_check_after": [
+        "Test with curl/browser on the local port.",
+        "Stop the forward when finished (Ctrl-C)."
+      ],
+      "related_commands": ["kubectl exec", "kubectl get svc", "kubectl logs"],
+      "best_practices": [
+        "Prefer port-forward for temporary debugging rather than permanently exposing internal services.",
+        "Use a high local port to avoid conflicts with local services."
+      ],
+      "interview_question": "How do you forward local port 9000 to port 8080 on a specific pod?",
+      "interview_answer": "kubectl port-forward pod/<pod-name> 9000:8080",
+      "importance": 7,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["port-forward", "debugging", "access"]
+    },
+    {
+      "id": 15,
+      "title": "View or edit resource configuration",
+      "command": "kubectl get -o yaml / kubectl edit",
+      "summary": "Dumps the live object as YAML or opens it in an editor for imperative changes.",
+      "problem": "I need to see the exact live spec or make a quick emergency change to a running object.",
+      "why_this_command": "get -o yaml is the authoritative view of what the API server has. edit is the fastest way to make a small live change when manifests are not immediately available.",
+      "thinking_process": [
+        "I need to confirm the image, env, or probe settings actually running.",
+        "kubectl get deploy/api -o yaml shows the live object.",
+        "For a tiny emergency fix I can kubectl edit deploy/api."
+      ],
+      "syntax": "kubectl get TYPE NAME -o yaml; kubectl edit TYPE NAME",
+      "examples": [
+        "kubectl get deploy api -o yaml",
+        "kubectl get pod api-xxx -o yaml",
+        "kubectl edit deploy api"
+      ],
+      "expected_output": "Full YAML of the object, or an editor session for edit",
+      "how_to_interpret_output": "Focus on spec (desired state) and status (observed state). For edit, saving the file sends an update; validation errors will be reported and the editor reopened.",
+      "real_world_incidents": [
+        "Confirmed a wrong image tag was live after a botched apply.",
+        "Emergency edit of a readiness probe timeout during an incident.",
+        "Discovered an unexpected annotation injected by a mutating webhook."
+      ],
+      "common_mistakes": [
+        "Editing and then losing the change because a controller overwrote it.",
+        "Editing the status section (it is largely ignored or rejected).",
+        "Using edit for permanent changes instead of updating source manifests."
+      ],
+      "what_to_check_before": [
+        "Prefer changing source manifests and applying when time allows."
+      ],
+      "what_to_check_after": [
+        "kubectl get / rollout status to confirm the change took effect.",
+        "Back-port the change into git so it is not lost."
+      ],
+      "related_commands": ["kubectl apply", "kubectl patch", "kubectl diff", "kubectl explain"],
+      "best_practices": [
+        "Treat kubectl edit as an emergency tool; always follow up with a proper manifest change.",
+        "Use get -o yaml | less rather than flooding the terminal."
+      ],
+      "interview_question": "Why might a change made with kubectl edit disappear after a few minutes?",
+      "interview_answer": "A controller (Deployment, operator, GitOps, etc.) is reconciling the object back to its desired state from its own source of truth.",
+      "importance": 7,
+      "frequency": "Weekly",
+      "difficulty": "Medium",
+      "tags": ["inspect", "edit", "live-config"]
+    },
+    {
+      "id": 16,
+      "title": "Scale a workload",
+      "command": "kubectl scale",
+      "summary": "Changes the number of replicas of a Deployment, ReplicaSet, StatefulSet, or similar controller.",
+      "problem": "I need more (or fewer) pods immediately to handle load or to drain a workload.",
+      "why_this_command": "Fastest way to change replica count without editing manifests under time pressure.",
+      "thinking_process": [
+        "Load has spiked or I need to reduce capacity.",
+        "kubectl scale deploy/api --replicas=5 updates the desired count.",
+        "I then watch pods come up or terminate."
+      ],
+      "syntax": "kubectl scale TYPE/NAME --replicas=N",
+      "examples": [
+        "kubectl scale deployment/api --replicas=5",
+        "kubectl scale statefulset/redis --replicas=3",
+        "kubectl scale deployment/api --replicas=0"
+      ],
+      "expected_output": "deployment.apps/api scaled",
+      "how_to_interpret_output": "Success means the desired replica count was updated. Actual pods will appear or disappear according to the controller’s pacing. Verify with kubectl get pods.",
+      "real_world_incidents": [
+        "Emergency scale-up during a traffic spike.",
+        "Scaling to zero to stop a runaway process while investigating.",
+        "Scaling down before a maintenance window."
+      ],
+      "common_mistakes": [
+        "Scaling a Deployment that is managed by HPA (the HPA may immediately fight the change).",
+        "Scaling without checking node capacity, causing Pending pods.",
+        "Forgetting to scale back after an emergency."
+      ],
+      "what_to_check_before": [
+        "Check current replica count and whether an HPA owns the Deployment.",
+        "Ensure nodes have capacity for a scale-up."
+      ],
+      "what_to_check_after": [
+        "kubectl get pods and kubectl rollout status",
+        "Restore the desired count in source manifests / HPA configuration."
+      ],
+      "related_commands": ["kubectl get deploy", "kubectl get hpa", "kubectl get pods", "kubectl top"],
+      "best_practices": [
+        "Prefer adjusting HPA or the source manifest for permanent changes.",
+        "Use scale for temporary emergency capacity only."
+      ],
+      "interview_question": "You scale a Deployment to 10 replicas but only 4 pods appear and the rest are Pending. What do you check?",
+      "interview_answer": "Node capacity and allocatable resources (kubectl describe nodes), taints/tolerations, and resource requests of the pods. The scheduler cannot place the additional pods.",
+      "importance": 7,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["scale", "replicas", "capacity"]
+    },
+    {
+      "id": 17,
+      "title": "List and inspect ConfigMaps and Secrets",
+      "command": "kubectl get configmap / secret",
+      "summary": "Shows ConfigMaps and Secrets; can dump keys or decode Secret values for inspection.",
+      "problem": "Application is misconfigured or missing credentials. Are the ConfigMap/Secret present and correct?",
+      "why_this_command": "Configuration and credential problems are extremely common. These commands confirm existence, keys, and (for Secrets) values.",
+      "thinking_process": [
+        "Pods are crashing with config or auth errors.",
+        "kubectl get cm/secret and kubectl describe or get -o yaml show what is actually mounted.",
+        "I can compare with what the application expects."
+      ],
+      "syntax": "kubectl get cm|secret [-n NS]; kubectl get secret NAME -o jsonpath='{.data.key}' | base64 -d",
+      "examples": [
+        "kubectl get configmap",
+        "kubectl get secret api-tls -o yaml",
+        "kubectl get secret db-creds -o jsonpath='{.data.password}' | base64 -d"
+      ],
+      "expected_output": "NAME DATA AGE or the YAML/decoded value",
+      "how_to_interpret_output": "DATA column shows the number of keys. Missing keys or wrong values explain many startup failures. Secrets are base64-encoded; always decode carefully and avoid printing them in shared logs.",
+      "real_world_incidents": [
+        "ConfigMap key renamed but the Deployment still referenced the old key.",
+        "Secret was deleted and pods started failing authentication.",
+        "TLS Secret contained an expired certificate."
+      ],
+      "common_mistakes": [
+        "Printing Secret values into chat or ticket systems.",
+        "Assuming a ConfigMap change is picked up automatically (depends on how it is consumed).",
+        "Forgetting that binary data in Secrets needs special handling."
+      ],
+      "what_to_check_before": [
+        "Know the expected names and keys from the pod spec or manifests."
+      ],
+      "what_to_check_after": [
+        "If values are wrong → update the ConfigMap/Secret and restart/roll the pods if necessary.",
+        "Confirm the volume mounts or envFrom references in the pod spec."
+      ],
+      "related_commands": ["kubectl describe pod", "kubectl create secret", "kubectl apply", "kubectl get pods"],
+      "best_practices": [
+        "Never commit raw Secret values to git; use sealed-secrets, external secrets, or a vault.",
+        "After changing a ConfigMap that is mounted as a volume, verify whether a pod restart is required."
+      ],
+      "interview_question": "How do you view the decoded value of a key named password inside a Secret named db-creds?",
+      "interview_answer": "kubectl get secret db-creds -o jsonpath='{.data.password}' | base64 -d",
+      "importance": 8,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["configmap", "secret", "configuration"]
+    },
+    {
+      "id": 18,
+      "title": "Check API resources and short names",
+      "command": "kubectl api-resources",
+      "summary": "Lists all resource types available in the cluster with their short names, API groups, and whether they are namespaced.",
+      "problem": "I do not remember the exact resource name or short name, or I need to know whether a CRD is installed.",
+      "why_this_command": "Fast reference for correct resource names and discovery of custom resources that may be involved in an incident.",
+      "thinking_process": [
+        "I need to query an unfamiliar resource or confirm a CRD exists.",
+        "kubectl api-resources lists everything the API server knows.",
+        "I can then use the correct name with get/describe."
+      ],
+      "syntax": "kubectl api-resources [--api-group=...] [--namespaced=true|false]",
+      "examples": [
+        "kubectl api-resources",
+        "kubectl api-resources --api-group=apps",
+        "kubectl api-resources | grep -i ingress"
+      ],
+      "expected_output": "NAME SHORTNAMES APIVERSION NAMESPACED KIND",
+      "how_to_interpret_output": "SHORTNAMES column gives the aliases you can use (deploy, svc, cm, etc.). NAMESPACED tells you whether -n is required. Missing expected CRDs indicate the operator is not installed.",
+      "real_world_incidents": [
+        "Confirmed an operator’s CRD was missing after a failed install.",
+        "Discovered the short name for a custom resource during an incident.",
+        "Verified that a beta API was still available after an upgrade."
+      ],
+      "common_mistakes": [
+        "Using an old resource name that was moved to a different API group.",
+        "Assuming a CRD exists because the operator Deployment is running (CRD may have failed to register)."
+      ],
+      "what_to_check_before": [],
+      "what_to_check_after": [
+        "Use the discovered name with kubectl get / describe."
+      ],
+      "related_commands": ["kubectl api-versions", "kubectl explain", "kubectl get"],
+      "best_practices": [
+        "Use api-resources | grep when you only remember part of the name.",
+        "After installing operators, verify their CRDs appear here."
+      ],
+      "interview_question": "How do you find the short name for Deployments?",
+      "interview_answer": "kubectl api-resources | grep -i deploy  (short name is deploy)",
+      "importance": 5,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["discovery", "api", "crd"]
+    },
+    {
+      "id": 19,
+      "title": "Explain resource fields",
+      "command": "kubectl explain",
+      "summary": "Shows the documentation and structure of a resource or a specific field from the API server.",
+      "problem": "I need to know the correct field name or structure for a manifest without leaving the terminal.",
+      "why_this_command": "Built-in, always up-to-date documentation for the exact API version the cluster is running.",
+      "thinking_process": [
+        "I am writing or debugging a manifest and need the exact field path.",
+        "kubectl explain deployment.spec.strategy or similar shows the schema.",
+        "I can navigate deeper with dotted paths."
+      ],
+      "syntax": "kubectl explain RESOURCE[.FIELD...]",
+      "examples": [
+        "kubectl explain pod",
+        "kubectl explain pod.spec.containers",
+        "kubectl explain deployment.spec.strategy"
+      ],
+      "expected_output": "KIND, VERSION, DESCRIPTION, and FIELDS with types and docs",
+      "how_to_interpret_output": "Use the field list to discover valid keys and their types. Nested explain calls reveal deeper structure. This is more reliable than external docs that may lag the cluster version.",
+      "real_world_incidents": [
+        "Confirmed the correct field for a probe’s timeout while debugging readiness failures.",
+        "Discovered a new field available after a cluster upgrade.",
+        "Avoided a typo in a CRD manifest by checking the explained schema."
+      ],
+      "common_mistakes": [
+        "Explaining a resource from the wrong API version.",
+        "Expecting examples rather than schema (explain is schema-focused)."
+      ],
+      "what_to_check_before": [],
+      "what_to_check_after": [
+        "Apply the corrected manifest or continue editing."
+      ],
+      "related_commands": ["kubectl api-resources", "kubectl get -o yaml", "kubectl edit"],
+      "best_practices": [
+        "Prefer kubectl explain over searching the web when you need the exact field for the running cluster version.",
+        "Use recursive explain carefully; it can be very verbose."
+      ],
+      "interview_question": "How do you see the structure of a container’s resource requirements field?",
+      "interview_answer": "kubectl explain pod.spec.containers.resources",
+      "importance": 5,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["schema", "docs", "manifests"]
+    },
+    {
+      "id": 20,
+      "title": "Switch context or namespace",
+      "command": "kubectl config",
+      "summary": "Views and modifies kubeconfig: contexts, clusters, users, and the current namespace preference.",
+      "problem": "I am pointed at the wrong cluster or namespace and commands are affecting the wrong place.",
+      "why_this_command": "Prevents the classic 'I just applied to production by accident' class of incidents. Essential for multi-cluster work.",
+      "thinking_process": [
+        "Something looks wrong or I am about to make a change.",
+        "kubectl config current-context and kubectl config get-contexts confirm where I am.",
+        "I switch context or set the namespace before proceeding."
+      ],
+      "syntax": "kubectl config current-context | get-contexts | use-context | set-context ...",
+      "examples": [
+        "kubectl config current-context",
+        "kubectl config get-contexts",
+        "kubectl config use-context prod-eu",
+        "kubectl config set-context --current --namespace=production"
+      ],
+      "expected_output": "Context name or a table of contexts with * marking the current one",
+      "how_to_interpret_output": "The starred context is active. Always verify before destructive operations. Namespace preference is stored per context.",
+      "real_world_incidents": [
+        "Engineer applied a delete to the production context by mistake.",
+        "CI job used a stale context and deployed to the wrong cluster.",
+        "Namespace preference pointed at default while the workload lived elsewhere."
+      ],
+      "common_mistakes": [
+        "Relying on memory instead of checking current-context.",
+        "Changing kubeconfig in a shared environment and surprising other users.",
+        "Forgetting that namespace is per-context."
+      ],
+      "what_to_check_before": [
+        "Make a habit of checking current-context before any write operation."
+      ],
+      "what_to_check_after": [
+        "Re-run current-context / get ns to confirm.",
+        "Proceed with the intended operation."
+      ],
+      "related_commands": ["kubectl get ns", "kubectl cluster-info", "kubectx / kubens"],
+      "best_practices": [
+        "Always run kubectl config current-context (or equivalent) before production changes.",
+        "Prefer explicit -n and --context flags in scripts over relying on the current setting."
+      ],
+      "interview_question": "How do you see which cluster and namespace your kubectl is currently targeting?",
+      "interview_answer": "kubectl config current-context and kubectl config view --minify (or kubectl get ns and check the current namespace preference).",
+      "importance": 9,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["context", "kubeconfig", "safety"]
+    },
+    {
+      "id": 21,
+      "title": "Cordon and drain a node",
+      "command": "kubectl cordon / kubectl drain",
+      "summary": "Marks a node unschedulable (cordon) and safely evicts pods (drain) for maintenance.",
+      "problem": "A node must be taken out of service for maintenance, upgrade, or because it is unhealthy.",
+      "why_this_command": "The supported way to remove a node from scheduling and to evict workloads gracefully before shutting the node down.",
+      "thinking_process": [
+        "Node needs maintenance or is failing.",
+        "kubectl cordon <node> prevents new pods.",
+        "kubectl drain <node> evicts existing pods (honouring PDBs) so the node can be safely stopped."
+      ],
+      "syntax": "kubectl cordon NODE; kubectl drain NODE [--ignore-daemonsets] [--delete-emptydir-data] [--force]",
+      "examples": [
+        "kubectl cordon worker-3",
+        "kubectl drain worker-3 --ignore-daemonsets --delete-emptydir-data",
+        "kubectl uncordon worker-3"
+      ],
+      "expected_output": "node/worker-3 cordoned; eviction messages for each pod",
+      "how_to_interpret_output": "Cordon succeeds silently (or with a confirmation). Drain prints each eviction. Failures usually mean a PodDisruptionBudget is blocking or a DaemonSet is present (use the appropriate flags). Always uncordon when the node is ready again.",
+      "real_world_incidents": [
+        "Draining a node before a kernel upgrade.",
+        "PDB blocked drain until the application’s disruption budget was temporarily relaxed.",
+        "Forgot to uncordon after maintenance and left the node permanently SchedulingDisabled."
+      ],
+      "common_mistakes": [
+        "Draining without --ignore-daemonsets and getting stuck on DaemonSet pods.",
+        "Using --force too aggressively and violating PDBs.",
+        "Forgetting to uncordon."
+      ],
+      "what_to_check_before": [
+        "Confirm the node name and that remaining capacity can absorb the pods.",
+        "Check PodDisruptionBudgets that might block the drain."
+      ],
+      "what_to_check_after": [
+        "kubectl get nodes to confirm SchedulingDisabled.",
+        "After maintenance: kubectl uncordon <node> and verify it becomes Ready and receives pods."
+      ],
+      "related_commands": ["kubectl get nodes", "kubectl get pdb", "kubectl uncordon", "kubectl describe node"],
+      "best_practices": [
+        "Always cordon before drain.",
+        "Prefer graceful drain; only add --force when you understand the impact on PDBs and data."
+      ],
+      "interview_question": "What is the difference between cordon and drain?",
+      "interview_answer": "Cordon only marks the node unschedulable so no new pods are placed. Drain cordons and also evicts existing pods (respecting PDBs) so the node can be safely taken offline.",
+      "importance": 7,
+      "frequency": "Weekly",
+      "difficulty": "Medium",
+      "tags": ["nodes", "maintenance", "drain"]
+    },
+    {
+      "id": 22,
+      "title": "Label and annotate resources",
+      "command": "kubectl label / kubectl annotate",
+      "summary": "Adds, updates, or removes labels and annotations on live objects.",
+      "problem": "A selector does not match, or I need to add a temporary label/annotation for tooling or policy.",
+      "why_this_command": "Labels drive selectors, network policies, and many operators. Fixing a missing or wrong label is a common emergency action.",
+      "thinking_process": [
+        "Service has no endpoints because the pod label does not match the selector.",
+        "kubectl label pod <name> app=api fixes the selector match.",
+        "I then verify endpoints appear."
+      ],
+      "syntax": "kubectl label TYPE NAME KEY=VALUE [--overwrite]; kubectl annotate TYPE NAME KEY=VALUE",
+      "examples": [
+        "kubectl label pod api-xxx app=api --overwrite",
+        "kubectl label nodes worker-1 disk=ssd",
+        "kubectl annotate deploy api description='emergency fix'"
+      ],
+      "expected_output": "resource/name labeled or annotated",
+      "how_to_interpret_output": "Success confirms the metadata was updated. For selector-related fixes, immediately check the dependent Service/Endpoints or controller.",
+      "real_world_incidents": [
+        "Pod missing the app label after a manual create; Service had zero endpoints.",
+        "Adding a temporary label so a network policy allowed debugging traffic.",
+        "Node label missing, so a DaemonSet did not schedule onto it."
+      ],
+      "common_mistakes": [
+        "Forgetting --overwrite when the key already exists.",
+        "Labelling the wrong object type.",
+        "Using annotations when a label is required for selectors (selectors only use labels)."
+      ],
+      "what_to_check_before": [
+        "Confirm the exact key/value expected by the selector or controller."
+      ],
+      "what_to_check_after": [
+        "kubectl get <type> --show-labels and the dependent resources (svc, endpoints, etc.).",
+        "Back-port the label into source manifests."
+      ],
+      "related_commands": ["kubectl get --show-labels", "kubectl describe", "kubectl get endpoints"],
+      "best_practices": [
+        "Prefer fixing labels in source manifests; use imperative label only for emergency or node metadata.",
+        "Remember that labels are for selection; annotations are for non-identifying metadata."
+      ],
+      "interview_question": "A Service selector is app=frontend but the pods are labelled app=front-end. How do you fix it quickly?",
+      "interview_answer": "Either kubectl label pod -l app=front-end app=frontend --overwrite or update the Service selector, then verify with kubectl get endpoints.",
+      "importance": 6,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["labels", "selectors", "metadata"]
+    },
+    {
+      "id": 23,
+      "title": "Patch a resource",
+      "command": "kubectl patch",
+      "summary": "Applies a strategic merge, JSON, or strategic merge patch to a live object without opening an editor.",
+      "problem": "I need a precise, scriptable change to a single field (image, replica count, annotation, etc.).",
+      "why_this_command": "Safer and more automatable than edit for single-field changes, and works well in scripts and runbooks.",
+      "thinking_process": [
+        "I need to change one field quickly and repeatably.",
+        "kubectl patch deploy/api -p '...' updates just that field.",
+        "I then verify the change with get or rollout status."
+      ],
+      "syntax": "kubectl patch TYPE NAME --type=TYPE -p 'PATCH'",
+      "examples": [
+        "kubectl patch deploy api -p '{\"spec\":{\"replicas\":3}}'",
+        "kubectl patch deploy api --type=json -p='[{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/image\",\"value\":\"nginx:1.25\"}]'",
+        "kubectl patch svc api -p '{\"metadata\":{\"annotations\":{\"service.beta.kubernetes.io/aws-load-balancer-type\":\"nlb\"}}}'"
+      ],
+      "expected_output": "resource/name patched",
+      "how_to_interpret_output": "Success means the patch was accepted. Validation errors indicate a bad path or type. Always verify the live object afterwards.",
+      "real_world_incidents": [
+        "Emergency image tag change via patch while manifests were being fixed.",
+        "Adding a temporary annotation to trigger a controller.",
+        "Scaling a Deployment in a script without using scale (for consistency with other patches)."
+      ],
+      "common_mistakes": [
+        "Wrong patch type (strategic vs json vs merge) causing unexpected results.",
+        "Incorrect JSON path in a JSON patch.",
+        "Patching and then having a controller overwrite the change."
+      ],
+      "what_to_check_before": [
+        "Know the exact field path and the correct patch type for the resource."
+      ],
+      "what_to_check_after": [
+        "kubectl get -o yaml or rollout status to confirm.",
+        "Update source manifests so the change is not lost."
+      ],
+      "related_commands": ["kubectl edit", "kubectl apply", "kubectl get -o yaml"],
+      "best_practices": [
+        "Prefer strategic merge patches for built-in resources when possible.",
+        "Use patch in automation; use apply for full declarative updates."
+      ],
+      "interview_question": "How do you change a Deployment’s replica count to 5 using patch?",
+      "interview_answer": "kubectl patch deployment <name> -p '{\"spec\":{\"replicas\":5}}'",
+      "importance": 6,
+      "frequency": "Weekly",
+      "difficulty": "Medium",
+      "tags": ["patch", "update", "automation"]
+    },
+    {
+      "id": 24,
+      "title": "Copy files to or from a pod",
+      "command": "kubectl cp",
+      "summary": "Copies files or directories between the local filesystem and a container in a pod.",
+      "problem": "I need to extract logs, config, or a binary from a pod, or push a temporary file into it.",
+      "why_this_command": "Practical way to move files during an incident when the container does not expose the data via volumes or logs.",
+      "thinking_process": [
+        "A file exists only inside the pod and I need it on my machine (or vice versa).",
+        "kubectl cp pod:/path localpath retrieves it.",
+        "Works for both directions."
+      ],
+      "syntax": "kubectl cp SRC DEST [-c CONTAINER]",
+      "examples": [
+        "kubectl cp api-xxx:/var/log/app.log ./app.log",
+        "kubectl cp ./debug-script.sh api-xxx:/tmp/",
+        "kubectl cp -c sidecar api-xxx:/etc/cert.pem ."
+      ],
+      "expected_output": "No output on success; the file appears at the destination",
+      "how_to_interpret_output": "Silent success. Failures usually mean the path does not exist, the container is not running, or tar is missing inside the container (kubectl cp depends on tar).",
+      "real_world_incidents": [
+        "Extracting an application heap dump for offline analysis.",
+        "Pushing a corrected config file for a quick test before rebuilding the image.",
+        "Retrieving a certificate that was generated inside the pod."
+      ],
+      "common_mistakes": [
+        "Forgetting that the container must contain the tar binary.",
+        "Using paths that do not exist.",
+        "Expecting ownership/permissions to be preserved exactly."
+      ],
+      "what_to_check_before": [
+        "Confirm the pod and container are running and the source path exists."
+      ],
+      "what_to_check_after": [
+        "Verify the file on the destination side.",
+        "Remember in-container changes are ephemeral without a volume."
+      ],
+      "related_commands": ["kubectl exec", "kubectl logs", "kubectl debug"],
+      "best_practices": [
+        "Prefer volumes or log shipping for anything that must be collected regularly.",
+        "Use kubectl cp only for emergency or one-off transfers."
+      ],
+      "interview_question": "Why might kubectl cp fail even though the pod is running?",
+      "interview_answer": "The container image may not contain the tar binary that kubectl cp relies on, or the specified path does not exist inside the container.",
+      "importance": 5,
+      "frequency": "Monthly",
+      "difficulty": "Easy",
+      "tags": ["files", "copy", "debugging"]
+    },
+    {
+      "id": 25,
+      "title": "Run a one-off debug pod",
+      "command": "kubectl run / kubectl debug",
+      "summary": "Creates a temporary pod (or attaches an ephemeral container) for interactive debugging inside the cluster network.",
+      "problem": "I need a shell with network access inside the cluster to test DNS, Services, or connectivity without modifying existing workloads.",
+      "why_this_command": "The standard way to get an ephemeral toolbox inside the cluster. kubectl debug additionally supports ephemeral containers on existing pods.",
+      "thinking_process": [
+        "I need to test whether a Service is reachable or DNS works from inside the cluster.",
+        "kubectl run tmp --rm -it --image=busybox -- sh gives me a disposable shell.",
+        "Or kubectl debug attaches an ephemeral container to a running pod."
+      ],
+      "syntax": "kubectl run NAME --image=IMAGE --rm -it -- COMMAND; kubectl debug POD -it --image=IMAGE",
+      "examples": [
+        "kubectl run curl --rm -it --image=curlimages/curl -- sh",
+        "kubectl run netshoot --rm -it --image=nicolaka/netshoot -- bash",
+        "kubectl debug api-xxx -it --image=busybox --target=api"
+      ],
+      "expected_output": "Interactive shell inside the temporary or ephemeral container",
+      "how_to_interpret_output": "You are now inside the cluster network namespace (or the target pod’s namespaces with debug). Test DNS, Services, and network policies from here. Delete the pod when finished (--rm helps).",
+      "real_world_incidents": [
+        "Confirmed a Service had no endpoints by curling it from a debug pod.",
+        "Verified DNS resolution of an external name from inside the cluster.",
+        "Used netshoot to run tcpdump and diagnose intermittent network drops."
+      ],
+      "common_mistakes": [
+        "Forgetting --rm and leaving debug pods behind.",
+        "Using an image that does not contain the tools you need.",
+        "Running a debug pod in the wrong namespace."
+      ],
+      "what_to_check_before": [
+        "Choose an image that has the tools required (curl, dig, busybox, netshoot, etc.)."
+      ],
+      "what_to_check_after": [
+        "Exit and confirm the temporary pod is gone.",
+        "Do not leave privileged debug pods running in production namespaces."
+      ],
+      "related_commands": ["kubectl exec", "kubectl port-forward", "kubectl get svc", "kubectl get endpoints"],
+      "best_practices": [
+        "Always use --rm for one-off run pods.",
+        "Prefer kubectl debug with ephemeral containers when you need the same network/pid namespace as an existing pod."
+      ],
+      "interview_question": "How do you start a temporary curl-capable pod that deletes itself when you exit?",
+      "interview_answer": "kubectl run curl --rm -it --image=curlimages/curl -- sh (or -- curl <url>)",
+      "importance": 7,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["debug", "ephemeral", "network"]
+    }
+  ]
+}

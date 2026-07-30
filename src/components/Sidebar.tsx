@@ -16,6 +16,8 @@ interface SidebarProps {
   bookmarks: string[];
   isOpen: boolean;
   onClose: () => void;
+  activeRunbookTool?: string;
+  setActiveRunbookTool?: (tool: string) => void;
 }
 
 export function Sidebar({
@@ -28,6 +30,8 @@ export function Sidebar({
   bookmarks,
   isOpen,
   onClose,
+  activeRunbookTool,
+  setActiveRunbookTool,
 }: SidebarProps) {
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({
     prep: true,
@@ -250,24 +254,37 @@ export function Sidebar({
               <div className="space-y-1 pt-1 animate-in fade-in duration-200">
                 {/* Active Runbooks links */}
                 <div className="ml-3 pl-2.5 border-l border-border space-y-0.5">
-                  {["K8s Control Plane Upgrade", "Private Docker Registry", "AWS IAM Policy Audit"].map((name, i) => (
-                    <button
-                      key={i}
-                      onClick={() => {
-                        setActiveTechId("runbooks");
-                        setActiveCategoryId(-1);
-                        setActiveQuestionId(-1);
-                        onClose();
-                      }}
-                      className={`w-full text-left py-2 px-2.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border-l-2 font-mono ${
-                        activeTechId === "runbooks"
-                          ? "bg-background text-foreground border-[#22c55e]"
-                          : "text-[#475569] border-transparent hover:text-foreground hover:bg-muted/20"
-                      }`}
-                    >
-                      {name}
-                    </button>
-                  ))}
+                  {[
+                    { key: "linux", name: "Linux Outages" },
+                    { key: "git", name: "Git Recovery" },
+                    { key: "networking", name: "Network Triage" },
+                    { key: "docker", name: "Docker Container" },
+                    { key: "kubernetes", name: "K8s Control Plane" },
+                    { key: "terraform", name: "Terraform State" }
+                  ].map((item) => {
+                    const isSelected = activeTechId === "runbooks" && activeRunbookTool === item.key;
+                    return (
+                      <button
+                        key={item.key}
+                        onClick={() => {
+                          setActiveTechId("runbooks");
+                          setActiveCategoryId(-1);
+                          setActiveQuestionId(-1);
+                          if (setActiveRunbookTool) {
+                            setActiveRunbookTool(item.key);
+                          }
+                          onClose();
+                        }}
+                        className={`w-full text-left py-2 px-2.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border-l-2 font-mono ${
+                          isSelected
+                            ? "bg-background text-foreground border-[#22c55e]"
+                            : "text-[#475569] border-transparent hover:text-foreground hover:bg-muted/20"
+                        }`}
+                      >
+                        {item.name}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

@@ -1,0 +1,504 @@
+{
+  "tool": "terraform",
+  "version": "1.0",
+  "description": "Production Terraform troubleshooting runbook focused on the commands that resolve 90% of day-to-day state, plan, apply, and workspace incidents.",
+  "totalCommands": 10,
+  "commands": [
+    {
+      "id": 1,
+      "title": "Initialize the working directory",
+      "command": "terraform init",
+      "summary": "Downloads providers and modules, sets up the backend, and prepares the working directory.",
+      "problem": "Terraform cannot run because providers or modules are missing, the backend is not configured, or the directory is fresh.",
+      "why_this_command": "Required first step for any new or cleaned working directory. Almost every other command fails until init has succeeded.",
+      "thinking_process": [
+        "Clone or switch to a Terraform root module.",
+        "terraform init downloads the required providers and modules and configures the backend.",
+        "Only after a successful init can plan or apply be run safely."
+      ],
+      "syntax": "terraform init [-upgrade] [-reconfigure] [-backend-config=...]",
+      "examples": [
+        "terraform init",
+        "terraform init -upgrade",
+        "terraform init -reconfigure"
+      ],
+      "expected_output": "Initializing the backend... Initializing provider plugins... Terraform has been successfully initialized!",
+      "how_to_interpret_output": "Success ends with the initialized message. Errors about backend access, missing credentials, or provider download failures must be fixed before continuing. -reconfigure is needed when backend settings have changed.",
+      "real_world_incidents": [
+        "New engineer cloned the repo and could not plan until init was run.",
+        "Backend bucket policy change required init -reconfigure.",
+        "Provider version constraint update needed init -upgrade."
+      ],
+      "common_mistakes": [
+        "Running plan/apply without init after a fresh clone or after changing providers.",
+        "Forgetting -reconfigure when the backend block itself changed.",
+        "Running init in the wrong directory (not the root module)."
+      ],
+      "what_to_check_before": [
+        "Confirm you are in the correct root module directory.",
+        "Ensure credentials for the backend and providers are available."
+      ],
+      "what_to_check_after": [
+        "Verify .terraform/ and .terraform.lock.hcl exist.",
+        "Proceed to terraform plan."
+      ],
+      "related_commands": ["terraform plan", "terraform providers", "terraform version"],
+      "best_practices": [
+        "Always commit .terraform.lock.hcl so provider versions stay consistent.",
+        "Use -upgrade deliberately; do not make it the default in CI."
+      ],
+      "interview_question": "When do you need terraform init -reconfigure?",
+      "interview_answer": "When the backend configuration itself has changed (different bucket, key, region, etc.) and Terraform must be told to adopt the new settings instead of migrating state automatically.",
+      "importance": 10,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["init", "setup", "backend", "providers"]
+    },
+    {
+      "id": 2,
+      "title": "Create an execution plan",
+      "command": "terraform plan",
+      "summary": "Shows the changes Terraform would make without applying them. The primary safety and review command.",
+      "problem": "What will this change actually do to the infrastructure? Are there unexpected destroys or replacements?",
+      "why_this_command": "The most important safety net in Terraform. Never apply without reviewing a plan in production workflows.",
+      "thinking_process": [
+        "Code or variable changes have been made.",
+        "terraform plan calculates the diff against state and remote APIs.",
+        "I review the plan for destroys, replacements, and unexpected actions before apply."
+      ],
+      "syntax": "terraform plan [-out=FILE] [-var-file=FILE] [-target=ADDRESS] [-destroy]",
+      "examples": [
+        "terraform plan",
+        "terraform plan -out=tfplan",
+        "terraform plan -var-file=prod.tfvars"
+      ],
+      "expected_output": "Plan: N to add, N to change, N to destroy (plus detailed resource actions)",
+      "how_to_interpret_output": "Focus on the summary line and any resource marked for destroy or force-new replacement. +/- indicates create, -/+ or -/ + indicates replacement, ~ indicates in-place update. Unexpected destroys are the highest risk.",
+      "real_world_incidents": [
+        "Plan revealed an accidental destroy of a production database after a name change.",
+        "Force-new replacement of a critical instance was caught before apply.",
+        "Plan showed no changes when a variable was not actually being picked up."
+      ],
+      "common_mistakes": [
+        "Applying without saving and reviewing a plan file.",
+        "Ignoring the destroy count in the summary.",
+        "Using -target in production without understanding the consequences for dependencies."
+      ],
+      "what_to_check_before": [
+        "Working directory is initialized and on the correct workspace.",
+        "Correct var-files and backend are in use."
+      ],
+      "what_to_check_after": [
+        "If the plan is clean and expected → terraform apply (preferably of the saved plan).",
+        "If unexpected actions appear → fix the code or state before applying."
+      ],
+      "related_commands": ["terraform apply", "terraform show", "terraform state list"],
+      "best_practices": [
+        "Always save the plan with -out and apply that exact plan in production.",
+        "Treat any unexpected destroy as a blocker until explained."
+      ],
+      "interview_question": "Why should you use terraform plan -out=tfplan followed by terraform apply tfplan in production?",
+      "interview_answer": "It guarantees that the exact changes reviewed in the plan are the ones applied. A plain apply re-calculates the plan and could produce a different result if the world or state changed in between.",
+      "importance": 10,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["plan", "safety", "review"]
+    },
+    {
+      "id": 3,
+      "title": "Apply changes",
+      "command": "terraform apply",
+      "summary": "Executes the actions proposed by a plan, creating, updating, or destroying real infrastructure.",
+      "problem": "Approved changes need to be made live in the cloud or platform.",
+      "why_this_command": "The only command that actually mutates infrastructure. Must be used with a reviewed plan in any production setting.",
+      "thinking_process": [
+        "A plan has been reviewed and approved.",
+        "terraform apply tfplan (or apply after interactive confirmation) performs the changes.",
+        "I watch the output for errors and then verify the real resources."
+      ],
+      "syntax": "terraform apply [PLANFILE] [-auto-approve] [-var-file=FILE] [-target=ADDRESS]",
+      "examples": [
+        "terraform apply tfplan",
+        "terraform apply -var-file=prod.tfvars",
+        "terraform apply -auto-approve"
+      ],
+      "expected_output": "Apply complete! Resources: N added, N changed, N destroyed.",
+      "how_to_interpret_output": "Success shows the counts. Errors usually include the resource address and the API error message. Partial applies leave state and reality out of sync and must be investigated immediately.",
+      "real_world_incidents": [
+        "Apply failed halfway because of an IAM permission; state was left inconsistent.",
+        "Auto-approve in CI applied an unexpected destroy after a plan was not re-checked.",
+        "Successful apply of a saved plan brought a new environment online cleanly."
+      ],
+      "common_mistakes": [
+        "Running apply without a prior plan review.",
+        "Using -auto-approve in interactive production work.",
+        "Ignoring errors and assuming the infrastructure is correct."
+      ],
+      "what_to_check_before": [
+        "A current, reviewed plan exists (preferably saved with -out).",
+        "Correct workspace, credentials, and var-files are selected."
+      ],
+      "what_to_check_after": [
+        "Verify critical resources in the cloud console or with terraform state show.",
+        "If the apply failed part-way → diagnose, fix, and re-plan before continuing."
+      ],
+      "related_commands": ["terraform plan", "terraform show", "terraform state list"],
+      "best_practices": [
+        "Prefer terraform apply <planfile> over interactive apply for production.",
+        "Never ignore a failed apply; state and reality are likely divergent."
+      ],
+      "interview_question": "What is the risk of running terraform apply without first reviewing a plan?",
+      "interview_answer": "Terraform will calculate and execute a new plan that may contain unexpected destroys or replacements. You lose the chance to catch dangerous changes before they hit production.",
+      "importance": 10,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["apply", "change", "mutation"]
+    },
+    {
+      "id": 4,
+      "title": "Inspect or list state",
+      "command": "terraform state list / show",
+      "summary": "Lists resource addresses in state or shows the detailed attributes of a single resource as recorded in state.",
+      "problem": "What does Terraform currently believe exists? What attributes does it have for a particular resource?",
+      "why_this_command": "State is the source of truth for Terraform. Inspecting it is essential when reality and configuration diverge or when debugging unexpected plans.",
+      "thinking_process": [
+        "Plan shows unexpected actions or a resource cannot be found.",
+        "terraform state list shows every address Terraform is tracking.",
+        "terraform state show <address> reveals the exact attributes stored."
+      ],
+      "syntax": "terraform state list; terraform state show ADDRESS",
+      "examples": [
+        "terraform state list",
+        "terraform state list | grep aws_instance",
+        "terraform state show aws_instance.web"
+      ],
+      "expected_output": "List of resource addresses, or a detailed attribute dump for one resource",
+      "how_to_interpret_output": "Every address in the list is managed by this state. Missing addresses that you expect usually mean the resource was never created, was removed from state, or lives in another workspace/state file. show output is what Terraform will use for drift detection.",
+      "real_world_incidents": [
+        "Discovered a resource was missing from state after a partial apply failure.",
+        "Confirmed the recorded AMI ID that was causing a force-new replacement.",
+        "Found duplicate resources tracked under different module paths."
+      ],
+      "common_mistakes": [
+        "Assuming state always matches the cloud; it can lag or be corrupted.",
+        "Editing state by hand instead of using state subcommands.",
+        "Looking in the wrong workspace."
+      ],
+      "what_to_check_before": [
+        "Correct workspace is selected.",
+        "State is unlocked and accessible."
+      ],
+      "what_to_check_after": [
+        "If a resource is missing from state but exists in the cloud → terraform import",
+        "If state is wrong → plan carefully or use state mv/rm with extreme caution"
+      ],
+      "related_commands": ["terraform plan", "terraform import", "terraform state mv", "terraform state rm"],
+      "best_practices": [
+        "Prefer state list/show over opening the raw state file.",
+        "Never edit the state JSON manually in production."
+      ],
+      "interview_question": "How do you see every resource currently tracked in the active state?",
+      "interview_answer": "terraform state list",
+      "importance": 9,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["state", "inspect", "inventory"]
+    },
+    {
+      "id": 5,
+      "title": "Select or list workspaces",
+      "command": "terraform workspace",
+      "summary": "Lists, selects, creates, or shows the current workspace. Workspaces isolate state within the same backend.",
+      "problem": "Am I operating on the correct environment’s state? Did I just plan against production by mistake?",
+      "why_this_command": "Workspace mistakes are a common source of production incidents. Checking and selecting the right workspace is a mandatory safety step.",
+      "thinking_process": [
+        "Before any plan or apply I confirm the workspace.",
+        "terraform workspace show / list tells me where I am and what exists.",
+        "terraform workspace select <name> switches if needed."
+      ],
+      "syntax": "terraform workspace list|show|select|new NAME",
+      "examples": [
+        "terraform workspace show",
+        "terraform workspace list",
+        "terraform workspace select prod"
+      ],
+      "expected_output": "Current workspace name, or a list with * marking the active one",
+      "how_to_interpret_output": "The starred or shown workspace is the one whose state will be read and written. Applying in the wrong workspace is one of the fastest ways to damage production.",
+      "real_world_incidents": [
+        "Engineer applied a destroy plan in the production workspace thinking they were in staging.",
+        "New workspace was created without realizing the backend prefix changed.",
+        "CI job failed to select the intended workspace and used default."
+      ],
+      "common_mistakes": [
+        "Relying on memory instead of checking workspace show before apply.",
+        "Using workspaces for completely different projects instead of separate state backends.",
+        "Forgetting that workspace selection is local to the working directory."
+      ],
+      "what_to_check_before": [
+        "Make workspace verification part of every production change checklist."
+      ],
+      "what_to_check_after": [
+        "Re-run workspace show to confirm.",
+        "Proceed with plan/apply only after confirmation."
+      ],
+      "related_commands": ["terraform init", "terraform plan", "terraform state list"],
+      "best_practices": [
+        "Always run terraform workspace show (or list) before any production plan or apply.",
+        "Prefer separate backends or separate root modules over many workspaces for strong isolation."
+      ],
+      "interview_question": "How do you confirm which Terraform workspace you are currently using?",
+      "interview_answer": "terraform workspace show (or terraform workspace list and look for the asterisk).",
+      "importance": 9,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["workspace", "safety", "environment"]
+    },
+    {
+      "id": 6,
+      "title": "Import existing infrastructure into state",
+      "command": "terraform import",
+      "summary": "Maps an existing real-world resource into Terraform state under a given address so it becomes managed.",
+      "problem": "A resource already exists in the cloud but is not in state. Terraform wants to create a duplicate or cannot manage it.",
+      "why_this_command": "The supported way to bring pre-existing resources under Terraform management without destroying and recreating them.",
+      "thinking_process": [
+        "A resource exists in the cloud but plan wants to create it (or it is missing from state).",
+        "I write the corresponding configuration, then terraform import <address> <cloud-id>.",
+        "A subsequent plan should show no changes (or only small updates)."
+      ],
+      "syntax": "terraform import ADDRESS ID",
+      "examples": [
+        "terraform import aws_instance.web i-0abc123def456",
+        "terraform import module.vpc.aws_vpc.this vpc-0123456789abcdef0",
+        "terraform import aws_s3_bucket.logs my-logs-bucket"
+      ],
+      "expected_output": "Import successful! The resources that were imported are shown above.",
+      "how_to_interpret_output": "Success means the resource is now in state. Immediately run terraform plan; any remaining diff must be resolved in configuration so the next apply does not change the live resource unexpectedly.",
+      "real_world_incidents": [
+        "Imported a manually created production database so it could be managed going forward.",
+        "Imported a load balancer that had been created outside Terraform during an emergency.",
+        "Import succeeded but plan still showed changes because the config did not match reality."
+      ],
+      "common_mistakes": [
+        "Importing without first writing matching configuration.",
+        "Using the wrong cloud ID format for the resource type.",
+        "Assuming import updates the resource; it only updates state."
+      ],
+      "what_to_check_before": [
+        "Configuration for the resource address already exists and is as accurate as possible.",
+        "You have the exact cloud provider ID."
+      ],
+      "what_to_check_after": [
+        "terraform plan and resolve any remaining differences in config.",
+        "terraform state show <address> to confirm attributes."
+      ],
+      "related_commands": ["terraform state list", "terraform plan", "terraform state show"],
+      "best_practices": [
+        "Always write the resource block first, then import, then plan until clean.",
+        "Document imported resources so the team knows they were not originally created by Terraform."
+      ],
+      "interview_question": "After a successful terraform import, why is it critical to run terraform plan?",
+      "interview_answer": "Import only brings the resource into state; it does not change the resource or guarantee the configuration matches reality. Plan reveals remaining drift that must be fixed in code before the next apply.",
+      "importance": 8,
+      "frequency": "Weekly",
+      "difficulty": "Medium",
+      "tags": ["import", "state", "adoption"]
+    },
+    {
+      "id": 7,
+      "title": "Move or rename a resource in state",
+      "command": "terraform state mv",
+      "summary": "Renames a resource address inside state without destroying or recreating the real infrastructure.",
+      "problem": "I refactored module structure or renamed a resource in code and Terraform wants to destroy the old and create a new one.",
+      "why_this_command": "Prevents unnecessary destroy/create cycles when the only change is the address in the Terraform configuration.",
+      "thinking_process": [
+        "After a refactor, plan shows destroy of the old address and create of the new one for the same resource.",
+        "terraform state mv old_address new_address updates state to match the new config.",
+        "A subsequent plan should show no changes (or only real attribute changes)."
+      ],
+      "syntax": "terraform state mv SOURCE DESTINATION",
+      "examples": [
+        "terraform state mv aws_instance.web module.web.aws_instance.this",
+        "terraform state mv aws_security_group.old aws_security_group.new",
+        "terraform state mv 'module.old[0].aws_subnet.this' 'module.new[0].aws_subnet.this'"
+      ],
+      "expected_output": "Move successful! Source and destination addresses are listed.",
+      "how_to_interpret_output": "Success means state now tracks the resource under the new address. Always run plan afterwards to confirm Terraform no longer wants to replace the object.",
+      "real_world_incidents": [
+        "Moved resources into a new module without downtime after a large refactor.",
+        "Renamed a resource to match a naming standard without recreation.",
+        "Failed move because of a typo in the destination address left state inconsistent until fixed."
+      ],
+      "common_mistakes": [
+        "Moving without updating the configuration to match the new address.",
+        "Typos in source or destination causing state to lose the resource.",
+        "Using mv when the real intent was to replace the resource."
+      ],
+      "what_to_check_before": [
+        "Configuration already uses the new address.",
+        "Source address exists in state (terraform state list)."
+      ],
+      "what_to_check_after": [
+        "terraform plan should no longer show destroy+create for that object.",
+        "terraform state list confirms the new address."
+      ],
+      "related_commands": ["terraform state list", "terraform plan", "terraform state rm"],
+      "best_practices": [
+        "Treat state mv as a surgical operation; take a state backup first if the backend allows.",
+        "Prefer small, reviewable moves over large bulk renames."
+      ],
+      "interview_question": "Why use terraform state mv instead of letting Terraform destroy and recreate after a rename?",
+      "interview_answer": "Because the real infrastructure does not need to change—only the address in state and configuration. Destroy/create would cause downtime and possible data loss for stateful resources.",
+      "importance": 7,
+      "frequency": "Monthly",
+      "difficulty": "Medium",
+      "tags": ["state", "refactor", "move"]
+    },
+    {
+      "id": 8,
+      "title": "Remove a resource from state",
+      "command": "terraform state rm",
+      "summary": "Stops Terraform from managing a resource by deleting its entry from state; the real infrastructure is left untouched.",
+      "problem": "A resource should no longer be managed by Terraform (or is causing plan problems) but must not be destroyed in the cloud.",
+      "why_this_command": "The safe way to abandon management of a resource without a destroy. Common when handing resources off or recovering from bad state.",
+      "thinking_process": [
+        "Plan wants to destroy something that must stay, or state is corrupted for one object.",
+        "terraform state rm <address> drops it from state.",
+        "I can then remove the configuration or import it elsewhere."
+      ],
+      "syntax": "terraform state rm ADDRESS",
+      "examples": [
+        "terraform state rm aws_instance.legacy",
+        "terraform state rm module.old.aws_s3_bucket.logs",
+        "terraform state rm 'aws_security_group.rules[0]'"
+      ],
+      "expected_output": "Successfully removed entries from state",
+      "how_to_interpret_output": "The resource is no longer tracked. A subsequent plan will want to create it again if the configuration still exists. The cloud resource itself is unchanged.",
+      "real_world_incidents": [
+        "Removed a manually broken resource from state so it could be re-imported cleanly.",
+        "Stopped managing a shared security group that other teams still needed.",
+        "Cleared a corrupted state entry that was blocking all plans."
+      ],
+      "common_mistakes": [
+        "Confusing state rm with destroy (the cloud resource is not deleted).",
+        "Removing the state entry but leaving the configuration, so the next apply recreates it.",
+        "Removing the wrong address and losing track of a critical resource."
+      ],
+      "what_to_check_before": [
+        "Confirm the exact address with terraform state list.",
+        "Decide whether the configuration should also be removed."
+      ],
+      "what_to_check_after": [
+        "terraform plan to see the new desired actions.",
+        "If the resource should still be managed, import it again under the correct address."
+      ],
+      "related_commands": ["terraform state list", "terraform import", "terraform destroy", "terraform plan"],
+      "best_practices": [
+        "Document every state rm; it is easy to lose track of abandoned resources.",
+        "Prefer state rm + config removal when permanently abandoning management."
+      ],
+      "interview_question": "What is the difference between terraform state rm and terraform destroy?",
+      "interview_answer": "state rm only removes the resource from Terraform state; the real infrastructure remains. destroy removes it from both state and the cloud provider.",
+      "importance": 7,
+      "frequency": "Monthly",
+      "difficulty": "Medium",
+      "tags": ["state", "rm", "abandon"]
+    },
+    {
+      "id": 9,
+      "title": "Refresh state and detect drift",
+      "command": "terraform plan -refresh-only / terraform refresh",
+      "summary": "Updates state to match real infrastructure without proposing configuration changes, or shows drift in a refresh-only plan.",
+      "problem": "Someone changed infrastructure outside Terraform. What is the current drift?",
+      "why_this_command": "Detects and optionally records drift between state and reality without applying configuration changes. Essential after manual changes or outages.",
+      "thinking_process": [
+        "Manual changes or an incident may have altered resources.",
+        "terraform plan -refresh-only shows what state would be updated to.",
+        "If the drift is acceptable I can apply the refresh-only plan to update state."
+      ],
+      "syntax": "terraform plan -refresh-only [-out=FILE]; terraform apply -refresh-only",
+      "examples": [
+        "terraform plan -refresh-only",
+        "terraform plan -refresh-only -out=refresh.tfplan",
+        "terraform apply -refresh-only"
+      ],
+      "expected_output": "Plan: 0 to add, N to change, 0 to destroy (changes are state updates only)",
+      "how_to_interpret_output": "The changes shown are updates to state, not to the real resources. Review carefully; applying a refresh-only plan makes Terraform forget the previous attributes and accept the current reality.",
+      "real_world_incidents": [
+        "Detected that an instance type had been changed in the console during an incident.",
+        "Refresh-only plan revealed tags that had been added by another automation system.",
+        "State was updated after a failover so subsequent plans were accurate."
+      ],
+      "common_mistakes": [
+        "Using the older terraform refresh command without understanding it updates state immediately.",
+        "Applying a refresh-only plan without reviewing what is being accepted as the new truth.",
+        "Assuming refresh fixes configuration drift; it only updates state."
+      ],
+      "what_to_check_before": [
+        "Understand that refresh-only accepts whatever is currently in the cloud as correct."
+      ],
+      "what_to_check_after": [
+        "If drift is unwanted → fix the real resource or the configuration and apply normally.",
+        "If drift is accepted → apply the refresh-only plan so state matches reality."
+      ],
+      "related_commands": ["terraform plan", "terraform apply", "terraform state show"],
+      "best_practices": [
+        "Prefer plan -refresh-only over the legacy refresh command so you can review before updating state.",
+        "Treat unexpected drift as a signal to improve change control."
+      ],
+      "interview_question": "What does a refresh-only plan actually change when applied?",
+      "interview_answer": "Only the Terraform state. It updates state to match the real infrastructure and does not modify the cloud resources themselves.",
+      "importance": 7,
+      "frequency": "Weekly",
+      "difficulty": "Medium",
+      "tags": ["drift", "refresh", "state"]
+    },
+    {
+      "id": 10,
+      "title": "Format and validate configuration",
+      "command": "terraform fmt / terraform validate",
+      "summary": "fmt rewrites configuration to the canonical style; validate checks that the configuration is syntactically valid and internally consistent.",
+      "problem": "Configuration has style issues or basic errors that will cause plan to fail. I want a fast local check before planning.",
+      "why_this_command": "Catches syntax errors, missing required arguments, and type problems early, and keeps code style consistent across the team.",
+      "thinking_process": [
+        "I have edited .tf files and want a quick sanity check.",
+        "terraform fmt -check and terraform validate run in seconds.",
+        "Only if they pass do I proceed to init/plan (which are heavier)."
+      ],
+      "syntax": "terraform fmt [-check] [-recursive]; terraform validate",
+      "examples": [
+        "terraform fmt -recursive",
+        "terraform fmt -check",
+        "terraform validate"
+      ],
+      "expected_output": "fmt rewrites files (or lists files that need formatting with -check); validate prints Success! The configuration is valid.",
+      "how_to_interpret_output": "fmt -check exiting non-zero means files need formatting. validate errors point at the exact file and argument that is wrong. Neither command touches remote state or providers beyond what is already initialized.",
+      "real_world_incidents": [
+        "CI failed on fmt -check and blocked a PR with inconsistent style.",
+        "validate caught a missing required provider argument before a long plan ran.",
+        "Typo in a variable type was caught by validate instead of at apply time."
+      ],
+      "common_mistakes": [
+        "Running validate before init (providers must be installed for full validation).",
+        "Ignoring fmt in CI and allowing style drift.",
+        "Expecting validate to catch semantic or cloud-side errors (it cannot)."
+      ],
+      "what_to_check_before": [
+        "For full validate, the directory should already be initialized."
+      ],
+      "what_to_check_after": [
+        "Fix any reported errors, re-run fmt/validate, then proceed to plan."
+      ],
+      "related_commands": ["terraform init", "terraform plan", "terraform providers"],
+      "best_practices": [
+        "Run terraform fmt -check and terraform validate in every CI pipeline before plan.",
+        "Make fmt part of the local pre-commit workflow."
+      ],
+      "interview_question": "What kinds of problems does terraform validate catch, and what does it not catch?",
+      "interview_answer": "It catches syntax errors, type mismatches, missing required arguments, and references to undeclared variables or resources. It does not catch cloud-side permission issues, quota problems, or whether the resulting plan is safe.",
+      "importance": 6,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["fmt", "validate", "quality"]
+    }
+  ]
+}

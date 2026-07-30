@@ -1,0 +1,747 @@
+{
+  "tool": "docker",
+  "version": "1.0",
+  "description": "Production Docker troubleshooting runbook focused on the commands that resolve 90% of day-to-day container, image, networking, and resource incidents.",
+  "totalCommands": 15,
+  "commands": [
+    {
+      "id": 1,
+      "title": "List running and stopped containers",
+      "command": "docker ps",
+      "summary": "Shows containers with status, ports, names, and IDs. Default shows only running; -a includes exited ones.",
+      "problem": "Is the container running? Did it exit? What is its ID or name so I can inspect logs or exec into it?",
+      "why_this_command": "The absolute first command in almost every Docker incident. Everything else starts from knowing the container’s current state and identity.",
+      "thinking_process": [
+        "Application is unreachable or monitoring shows the container down.",
+        "docker ps -a tells me whether it is running, exited, or restarting and gives the ID/name.",
+        "From there I go to logs, inspect, or restart."
+      ],
+      "syntax": "docker ps [-a] [-q] [--filter ...]",
+      "examples": [
+        "docker ps",
+        "docker ps -a",
+        "docker ps -a --filter status=exited"
+      ],
+      "expected_output": "CONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMES",
+      "how_to_interpret_output": "STATUS column is critical: Up, Exited (code), Restarting, Dead. Exit code 0 is usually clean; non-zero indicates failure. PORTS shows published mappings. Note the ID or name for subsequent commands.",
+      "real_world_incidents": [
+        "Container exited with code 1 after a bad config change.",
+        "Container stuck in Restarting loop (CrashLoop).",
+        "Old container still running under a previous name after a deploy."
+      ],
+      "common_mistakes": [
+        "Running plain docker ps and missing exited containers that hold the real error.",
+        "Assuming a container named 'app' is the one you think it is without checking the image or created time.",
+        "Not noticing that the branch has diverged from its remote."
+      ],
+      "what_to_check_before": [
+        "Confirm you are on the correct host / Docker context."
+      ],
+      "what_to_check_after": [
+        "If exited → docker logs <id>",
+        "If running but unhealthy → docker logs and docker inspect",
+        "If missing entirely → check compose/stack or whether it was never started"
+      ],
+      "related_commands": ["docker logs", "docker inspect", "docker start", "docker compose ps"],
+      "best_practices": [
+        "Always start with docker ps -a during an incident.",
+        "Use meaningful --name values so containers are identifiable without relying on random IDs."
+      ],
+      "interview_question": "A container is not reachable. What is the first Docker command you run and why?",
+      "interview_answer": "docker ps -a. It shows whether the container exists, is running, or has exited, and gives the ID/name needed for logs and inspect.",
+      "importance": 10,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["containers", "status", "first-command"]
+    },
+    {
+      "id": 2,
+      "title": "View container logs",
+      "command": "docker logs",
+      "summary": "Fetches the stdout/stderr of a container. Supports follow, tail, and timestamps.",
+      "problem": "Container exited or is misbehaving. What did it print before dying or while running?",
+      "why_this_command": "Application and runtime errors almost always appear in the container logs. This is the fastest way to see them.",
+      "thinking_process": [
+        "docker ps -a showed the container exited or is restarting.",
+        "docker logs <id> reveals the error message or stack trace.",
+        "I can then decide on config fixes, image problems, or resource limits."
+      ],
+      "syntax": "docker logs [-f] [--tail N] [-t] CONTAINER",
+      "examples": [
+        "docker logs myapp",
+        "docker logs -f --tail 100 api",
+        "docker logs -t --since 10m backend"
+      ],
+      "expected_output": "Timestamped or plain log lines from the container’s stdout/stderr",
+      "how_to_interpret_output": "Look for ERROR, FATAL, panic, exception stack traces, or exit-related messages. Correlate timestamps with the moment the problem started. Silence can also be a signal (process hung before logging).",
+      "real_world_incidents": [
+        "Application crashed on startup due to missing environment variable.",
+        "OOM killer left no application log but the last lines showed memory pressure.",
+        "Health-check endpoint failing because of a database connection error visible in logs."
+      ],
+      "common_mistakes": [
+        "Forgetting -f when you need live output.",
+        "Not limiting with --tail on long-running containers and flooding the terminal.",
+        "Looking only at the most recent lines when the real error happened earlier."
+      ],
+      "what_to_check_before": [
+        "Have the container name or ID from docker ps -a."
+      ],
+      "what_to_check_after": [
+        "If the error is clear → fix config/image and recreate.",
+        "If still unclear → docker inspect for state and mounts, or docker exec if the container is still running."
+      ],
+      "related_commands": ["docker ps", "docker inspect", "docker exec", "journalctl"],
+      "best_practices": [
+        "Prefer docker logs --tail 100 -f during live incidents.",
+        "Ensure applications log to stdout/stderr so docker logs works; avoid logging only to internal files."
+      ],
+      "interview_question": "How do you follow the last 50 lines of a container’s logs in real time?",
+      "interview_answer": "docker logs --tail 50 -f <container>",
+      "importance": 10,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["logs", "debugging", "crash"]
+    },
+    {
+      "id": 3,
+      "title": "Inspect container configuration and state",
+      "command": "docker inspect",
+      "summary": "Returns full low-level information on a container (or image) as JSON: state, mounts, network, env, resources.",
+      "problem": "Why did the container exit? What environment variables, mounts, or network settings is it actually using?",
+      "why_this_command": "When logs are insufficient, inspect shows the exact configuration and the State.ExitCode, OOMKilled flag, Mounts, and NetworkSettings.",
+      "thinking_process": [
+        "Logs did not explain the failure or I need to verify mounts/env.",
+        "docker inspect <id> gives State, Config, Mounts, HostConfig, NetworkSettings.",
+        "I look specifically at ExitCode, OOMKilled, and the mounts/env that might be wrong."
+      ],
+      "syntax": "docker inspect [CONTAINER|IMAGE] [--format '{{.Field}}']",
+      "examples": [
+        "docker inspect myapp",
+        "docker inspect --format '{{.State.Status}} {{.State.ExitCode}} {{.State.OOMKilled}}' myapp",
+        "docker inspect --format '{{json .Mounts}}' myapp"
+      ],
+      "expected_output": "Large JSON document or the specific formatted fields requested",
+      "how_to_interpret_output": "State.Status and ExitCode explain termination. OOMKilled=true means the kernel killed it for memory. Mounts show what is actually bound. NetworkSettings.IPAddress and Ports reveal networking. Env shows the runtime environment.",
+      "real_world_incidents": [
+        "OOMKilled=true explained sudden restarts that left no application log.",
+        "A volume mount was missing, so the container started with empty config.",
+        "Wrong environment variable value injected by the orchestrator."
+      ],
+      "common_mistakes": [
+        "Dumping the entire JSON and getting lost; always use --format for the fields you need.",
+        "Inspecting an image when you meant the container (or vice versa).",
+        "Missing that State.Error can contain useful messages."
+      ],
+      "what_to_check_before": [
+        "Have the container ID/name from docker ps -a."
+      ],
+      "what_to_check_after": [
+        "If OOMKilled → increase memory limit or fix the leak.",
+        "If mounts wrong → fix the run/compose configuration and recreate.",
+        "If env wrong → correct and recreate."
+      ],
+      "related_commands": ["docker ps", "docker logs", "docker exec", "docker stats"],
+      "best_practices": [
+        "Learn a few --format templates for Status, ExitCode, OOMKilled, and Mounts; they save time under pressure.",
+        "Prefer structured inspection over reading the full JSON every time."
+      ],
+      "interview_question": "How do you quickly check whether a container was killed by the OOM killer?",
+      "interview_answer": "docker inspect --format '{{.State.OOMKilled}}' <container>",
+      "importance": 9,
+      "frequency": "Daily",
+      "difficulty": "Medium",
+      "tags": ["inspect", "state", "config", "oom"]
+    },
+    {
+      "id": 4,
+      "title": "Execute a command inside a running container",
+      "command": "docker exec",
+      "summary": "Runs a new command in an already-running container, commonly used to open a shell or run diagnostics.",
+      "problem": "I need to look around inside the container: check files, environment, connectivity, or processes.",
+      "why_this_command": "The standard way to get a shell or run one-off tools without restarting or rebuilding the container.",
+      "thinking_process": [
+        "Container is running but not behaving correctly.",
+        "Logs and inspect did not give the full picture.",
+        "docker exec -it <id> sh lets me inspect the filesystem, env, and network from inside."
+      ],
+      "syntax": "docker exec [-it] CONTAINER COMMAND",
+      "examples": [
+        "docker exec -it myapp sh",
+        "docker exec myapp env",
+        "docker exec myapp curl -s localhost:8080/health"
+      ],
+      "expected_output": "Interactive shell or the stdout of the executed command",
+      "how_to_interpret_output": "Treat it as a normal shell on a minimal system. Check processes (ps), network (wget/curl), files, and environment variables. Exit code of the command is returned to the host.",
+      "real_world_incidents": [
+        "Confirming a config file inside the container had the wrong contents.",
+        "Testing that the application could reach its database from inside the container network.",
+        "Discovering a missing binary or library that the process needed."
+      ],
+      "common_mistakes": [
+        "Trying to exec into an exited container (it must be running).",
+        "Forgetting -it for interactive shells and getting a non-functional terminal.",
+        "Using bash when the image only contains sh."
+      ],
+      "what_to_check_before": [
+        "Container must be in running state (docker ps).",
+        "Prefer non-interactive commands first when possible."
+      ],
+      "what_to_check_after": [
+        "Do not leave interactive sessions open longer than needed.",
+        "Any filesystem changes are ephemeral unless made on a volume."
+      ],
+      "related_commands": ["docker ps", "docker logs", "docker inspect", "docker cp"],
+      "best_practices": [
+        "Always prefer docker exec over installing extra tools in the image just for debugging.",
+        "Use -u to run as a specific user when permission issues arise."
+      ],
+      "interview_question": "How do you open an interactive shell inside a running container that only has busybox?",
+      "interview_answer": "docker exec -it <container> sh",
+      "importance": 9,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["exec", "shell", "debugging"]
+    },
+    {
+      "id": 5,
+      "title": "Show live resource usage of containers",
+      "command": "docker stats",
+      "summary": "Streams CPU, memory, network, and block I/O usage for running containers.",
+      "problem": "Is a container consuming too much CPU or memory? Is it being throttled or approaching its limit?",
+      "why_this_command": "Gives an immediate, continuous view of resource consumption without having to enter the container or rely solely on host-level tools.",
+      "thinking_process": [
+        "Host is under pressure or a container is slow.",
+        "docker stats shows which container is the heavy consumer and whether it is near its limit.",
+        "I can then inspect limits, logs, or adjust resources."
+      ],
+      "syntax": "docker stats [CONTAINER...] [--no-stream]",
+      "examples": [
+        "docker stats",
+        "docker stats myapp",
+        "docker stats --no-stream"
+      ],
+      "expected_output": "CONTAINER CPU % MEM USAGE / LIMIT MEM % NET I/O BLOCK I/O PIDS",
+      "how_to_interpret_output": "Watch MEM USAGE against LIMIT. If usage is at or near the limit, OOM is likely. High CPU % may indicate a tight loop or insufficient allocation. NET and BLOCK I/O help identify chatty or disk-heavy containers.",
+      "real_world_incidents": [
+        "Container repeatedly OOMKilled because its memory limit was too low for the workload.",
+        "One container saturating CPU and starving others on the same host.",
+        "Unexpected network traffic from a compromised or misconfigured container."
+      ],
+      "common_mistakes": [
+        "Looking at CPU % without understanding it is relative to a single core (can exceed 100%).",
+        "Ignoring the LIMIT column and only watching usage.",
+        "Leaving docker stats running and cluttering the terminal."
+      ],
+      "what_to_check_before": [
+        "Have an idea which containers are relevant from docker ps."
+      ],
+      "what_to_check_after": [
+        "If memory is at limit → docker inspect for OOMKilled and consider raising the limit or fixing the leak.",
+        "If CPU is high → exec in and examine processes, or check application metrics."
+      ],
+      "related_commands": ["docker inspect", "docker ps", "docker logs", "top"],
+      "best_practices": [
+        "Use docker stats --no-stream for a one-shot snapshot in scripts.",
+        "Set explicit memory and CPU limits in production so stats has meaningful LIMIT values."
+      ],
+      "interview_question": "docker stats shows a container at 100% of its memory limit. What should you check next?",
+      "interview_answer": "docker inspect for State.OOMKilled and recent logs, then decide whether to raise the memory limit or fix an application memory leak.",
+      "importance": 8,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["resources", "cpu", "memory", "monitoring"]
+    },
+    {
+      "id": 6,
+      "title": "List local images",
+      "command": "docker images",
+      "summary": "Shows all images present on the host with repository, tag, ID, creation date, and size.",
+      "problem": "Is the expected image present? Which tags exist? Is disk being consumed by old images?",
+      "why_this_command": "Necessary before running or pulling, and for diagnosing ImagePullBackOff-style problems or disk exhaustion caused by images.",
+      "thinking_process": [
+        "Container failed to start with 'image not found' or disk is full.",
+        "docker images shows what is actually present locally and how much space each consumes.",
+        "I can then pull the missing image or prune unused ones."
+      ],
+      "syntax": "docker images [-a] [--filter ...] [--digests]",
+      "examples": [
+        "docker images",
+        "docker images nginx",
+        "docker images --filter dangling=true"
+      ],
+      "expected_output": "REPOSITORY TAG IMAGE ID CREATED SIZE",
+      "how_to_interpret_output": "Look for the expected repository:tag. <none> tags are dangling images usually left after builds. Large sizes on old tags often explain disk pressure.",
+      "real_world_incidents": [
+        "Deploy referenced a tag that had never been pulled on that host.",
+        "Dangling images and old tags filled the Docker disk.",
+        "Multiple tags pointing at the same image ID after a retag."
+      ],
+      "common_mistakes": [
+        "Assuming a tag exists because it exists on the registry; the local host may not have it.",
+        "Not noticing dangling images that still consume space.",
+        "Deleting an image that is still referenced by a stopped container."
+      ],
+      "what_to_check_before": [
+        "Know the image name and tag the workload expects."
+      ],
+      "what_to_check_after": [
+        "If missing → docker pull",
+        "If disk is full → docker image prune or more aggressive cleanup"
+      ],
+      "related_commands": ["docker pull", "docker rmi", "docker system df", "docker ps -a"],
+      "best_practices": [
+        "Prefer digests over mutable tags for production deployments when possible.",
+        "Regularly prune unused images in non-production environments."
+      ],
+      "interview_question": "How do you list only dangling images?",
+      "interview_answer": "docker images --filter dangling=true (or docker image ls -f dangling=true)",
+      "importance": 7,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["images", "disk", "inventory"]
+    },
+    {
+      "id": 7,
+      "title": "Pull an image from a registry",
+      "command": "docker pull",
+      "summary": "Downloads an image (or a specific platform variant) from a registry to the local host.",
+      "problem": "Image is missing locally or a newer version is required. Container creation fails with image not found.",
+      "why_this_command": "The standard way to bring an image onto the host. Also surfaces authentication and network problems with the registry.",
+      "thinking_process": [
+        "docker images showed the required tag is absent.",
+        "docker pull repo:tag fetches it.",
+        "Failures here usually mean network, auth, or the tag does not exist in the registry."
+      ],
+      "syntax": "docker pull NAME[:TAG|@DIGEST]",
+      "examples": [
+        "docker pull nginx:1.25",
+        "docker pull ghcr.io/org/app:1.2.3",
+        "docker pull --platform linux/amd64 myimage:latest"
+      ],
+      "expected_output": "Layer download progress and a final 'Status: Downloaded newer image' or 'Image is up to date'",
+      "how_to_interpret_output": "Successful pull ends with a digest and status message. Errors about unauthorized indicate auth problems; not found means the tag/repo is wrong or private; timeout/network errors point to connectivity or registry availability.",
+      "real_world_incidents": [
+        "ImagePullBackOff caused by an incorrect tag in the deployment spec.",
+        "Registry authentication token expired on the node.",
+        "Rate limiting from Docker Hub on anonymous pulls."
+      ],
+      "common_mistakes": [
+        "Pulling :latest in production and getting an unexpected version.",
+        "Forgetting to authenticate to a private registry first.",
+        "Not specifying the platform on multi-arch hosts and getting the wrong architecture."
+      ],
+      "what_to_check_before": [
+        "Confirm the exact image name and tag.",
+        "Ensure registry credentials are present if the image is private."
+      ],
+      "what_to_check_after": [
+        "docker images to verify the image is present.",
+        "Retry the container start or deployment."
+      ],
+      "related_commands": ["docker images", "docker login", "docker run", "docker system df"],
+      "best_practices": [
+        "Pin to specific tags or digests in production.",
+        "Authenticate to private registries with short-lived credentials where possible."
+      ],
+      "interview_question": "A pull fails with 'unauthorized'. What are the usual causes?",
+      "interview_answer": "Missing or expired registry credentials, wrong username/password, or the token lacks permission for that repository. Run docker login against the registry and retry.",
+      "importance": 8,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["images", "registry", "pull"]
+    },
+    {
+      "id": 8,
+      "title": "Start, stop, or restart a container",
+      "command": "docker start / stop / restart",
+      "summary": "Controls the lifecycle of existing containers without recreating them.",
+      "problem": "Container is stopped and needs to be brought back, or a running container needs a clean restart after a config or dependency change.",
+      "why_this_command": "Simple lifecycle control for containers that already exist. Prefer restart over kill when the container is managed and should keep its configuration.",
+      "thinking_process": [
+        "docker ps -a showed the container is exited but the image and config are still good.",
+        "docker start <name> brings it back with the same settings.",
+        "If it is running but wedged, docker restart is the controlled bounce."
+      ],
+      "syntax": "docker start|stop|restart [-t SECONDS] CONTAINER",
+      "examples": [
+        "docker start myapp",
+        "docker stop myapp",
+        "docker restart myapp"
+      ],
+      "expected_output": "The container name/ID on success",
+      "how_to_interpret_output": "Silent success with the name printed. Immediately verify with docker ps and docker logs that it stayed up and is healthy.",
+      "real_world_incidents": [
+        "Restarting a container after the database it depends on came back online.",
+        "Stopping a runaway container that was filling the disk with logs.",
+        "Starting a previously stopped sidecar after a host reboot."
+      ],
+      "common_mistakes": [
+        "Starting a container that was created with bad configuration; it will just exit again.",
+        "Using stop without giving the process enough time to shut down cleanly (adjust -t).",
+        "Restarting when the real fix is to recreate with new environment or mounts."
+      ],
+      "what_to_check_before": [
+        "docker ps -a and docker logs to understand why it stopped."
+      ],
+      "what_to_check_after": [
+        "docker ps to confirm it is running.",
+        "docker logs -f to watch for immediate errors.",
+        "Check the application health endpoint if available."
+      ],
+      "related_commands": ["docker ps", "docker logs", "docker update", "docker rm"],
+      "best_practices": [
+        "Prefer docker restart over a manual stop + start when you simply need a bounce.",
+        "For configuration changes that require new env or mounts, recreate the container instead of just restarting."
+      ],
+      "interview_question": "When should you recreate a container instead of just restarting it?",
+      "interview_answer": "When you need to change environment variables, mounts, port mappings, resource limits, or the image itself. Restart keeps the original create-time configuration.",
+      "importance": 8,
+      "frequency": "Daily",
+      "difficulty": "Easy",
+      "tags": ["lifecycle", "start", "stop", "restart"]
+    },
+    {
+      "id": 9,
+      "title": "Remove containers",
+      "command": "docker rm",
+      "summary": "Deletes one or more stopped containers, freeing their writable layer and metadata.",
+      "problem": "Stopped containers are accumulating, consuming disk, or holding names/ports that prevent new containers from starting.",
+      "why_this_command": "Required to clean up after failures and to release names so a new container can be created with the same name.",
+      "thinking_process": [
+        "docker ps -a shows many exited containers or a name conflict.",
+        "docker rm <id> removes the stopped container.",
+        "I can then recreate cleanly or free disk space."
+      ],
+      "syntax": "docker rm [-f] [-v] CONTAINER [CONTAINER...]",
+      "examples": [
+        "docker rm myapp",
+        "docker rm -f $(docker ps -aq)",
+        "docker rm -v oldcontainer"
+      ],
+      "expected_output": "The container name/ID that was removed",
+      "how_to_interpret_output": "Success prints the name. Errors about the container being running require -f or a prior stop. -v also removes associated anonymous volumes.",
+      "real_world_incidents": [
+        "Name conflict preventing a new container from being created with the same name.",
+        "Hundreds of exited containers from a flapping service filling disk.",
+        "Removing a container to force recreation with updated environment variables."
+      ],
+      "common_mistakes": [
+        "Using -f on a container that is still serving traffic.",
+        "Forgetting that -v deletes anonymous volumes and can lose data.",
+        "Removing a container that still has important logs you have not collected."
+      ],
+      "what_to_check_before": [
+        "Collect logs if needed: docker logs <id>",
+        "Confirm the container is not supposed to be running."
+      ],
+      "what_to_check_after": [
+        "docker ps -a to verify it is gone.",
+        "Recreate if this was part of a redeploy."
+      ],
+      "related_commands": ["docker ps -a", "docker logs", "docker volume ls", "docker system prune"],
+      "best_practices": [
+        "Prefer docker rm only on stopped containers; use docker stop first for safety.",
+        "In automation, filter carefully instead of blindly removing all exited containers."
+      ],
+      "interview_question": "How do you remove all exited containers in one command?",
+      "interview_answer": "docker rm $(docker ps -aq --filter status=exited) or docker container prune",
+      "importance": 7,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["cleanup", "containers", "disk"]
+    },
+    {
+      "id": 10,
+      "title": "Remove images",
+      "command": "docker rmi",
+      "summary": "Deletes one or more images from the local store, reclaiming disk space.",
+      "problem": "Disk is full from old or dangling images, or an image must be removed so a fresh pull can occur.",
+      "why_this_command": "Primary way to free image-related disk space and to force a clean re-pull of a tag.",
+      "thinking_process": [
+        "docker system df or df showed Docker consuming large space.",
+        "docker images listed old tags and dangling images.",
+        "docker rmi removes them so space is reclaimed."
+      ],
+      "syntax": "docker rmi [-f] IMAGE [IMAGE...]",
+      "examples": [
+        "docker rmi nginx:old",
+        "docker rmi $(docker images -q --filter dangling=true)",
+        "docker rmi -f abc123"
+      ],
+      "expected_output": "Untagged and deleted messages for each layer/image",
+      "how_to_interpret_output": "Successful removal shows 'Untagged' and 'Deleted'. Errors about the image being in use mean a container still references it; remove or force-remove the container first.",
+      "real_world_incidents": [
+        "Docker disk filled by months of accumulated image tags after frequent deploys.",
+        "Forcing removal of a corrupted image so it could be re-pulled.",
+        "Cleaning dangling images left by failed builds."
+      ],
+      "common_mistakes": [
+        "Removing an image that is still used by a stopped container you care about.",
+        "Using -f without understanding that it can leave containers in a broken state.",
+        "Deleting images that are shared by multiple tags you still need."
+      ],
+      "what_to_check_before": [
+        "docker ps -a to ensure no containers reference the image, or accept that they will be affected."
+      ],
+      "what_to_check_after": [
+        "docker images and docker system df to confirm space was freed.",
+        "Re-pull if the image is still required."
+      ],
+      "related_commands": ["docker images", "docker system df", "docker image prune", "docker ps -a"],
+      "best_practices": [
+        "Prefer docker image prune for dangling images and docker system prune for broader cleanup.",
+        "Avoid deleting images that are currently used by running production containers."
+      ],
+      "interview_question": "What does it mean when docker rmi says the image is in use?",
+      "interview_answer": "A container (running or stopped) still references that image. Remove the container first with docker rm, or use docker rmi -f if you accept the consequences.",
+      "importance": 7,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["images", "cleanup", "disk"]
+    },
+    {
+      "id": 11,
+      "title": "Show Docker disk usage",
+      "command": "docker system df",
+      "summary": "Summarizes disk space used by images, containers, local volumes, and build cache.",
+      "problem": "Host disk is filling up and Docker is the suspected consumer. Where is the space going?",
+      "why_this_command": "Single overview of how much space each Docker resource type is consuming and how much of it is reclaimable.",
+      "thinking_process": [
+        "df -h showed the Docker data partition full.",
+        "docker system df breaks the usage down by images, containers, volumes, and build cache.",
+        "I then target the largest reclaimable category with the appropriate prune command."
+      ],
+      "syntax": "docker system df [-v]",
+      "examples": [
+        "docker system df",
+        "docker system df -v"
+      ],
+      "expected_output": "TYPE TOTAL ACTIVE SIZE RECLAIMABLE for Images, Containers, Local Volumes, Build Cache",
+      "how_to_interpret_output": "RECLAIMABLE is the important column. Large reclaimable images usually mean dangling or unused tags. Large volumes may contain important data—inspect before deleting. Build cache is usually safe to prune on non-build hosts.",
+      "real_world_incidents": [
+        "Build cache and old images filled a CI host overnight.",
+        "Anonymous volumes left by short-lived containers consumed tens of gigabytes.",
+        "Stopped containers with large writable layers after log accumulation."
+      ],
+      "common_mistakes": [
+        "Pruning volumes without checking whether they contain persistent data.",
+        "Assuming all reclaimable space can be freed without impact.",
+        "Not running with -v when you need to see individual volume sizes."
+      ],
+      "what_to_check_before": [
+        "Confirm the host is actually low on disk with df -h."
+      ],
+      "what_to_check_after": [
+        "Use docker image prune, docker container prune, docker volume prune, or docker builder prune according to the largest reclaimable category.",
+        "Re-check df -h and docker system df."
+      ],
+      "related_commands": ["df -h", "docker image prune", "docker volume ls", "docker system prune"],
+      "best_practices": [
+        "Run docker system df regularly on hosts that build or run many short-lived containers.",
+        "Never prune volumes blindly in production; identify them first."
+      ],
+      "interview_question": "docker system df shows a large amount of reclaimable space under Images. What is the safest next command?",
+      "interview_answer": "docker image prune (or docker image prune -a after confirming no needed tags will be removed). This removes dangling or unused images without touching volumes.",
+      "importance": 8,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["disk", "cleanup", "capacity"]
+    },
+    {
+      "id": 12,
+      "title": "Prune unused Docker data",
+      "command": "docker system prune",
+      "summary": "Removes stopped containers, unused networks, dangling images, and optionally build cache and unused volumes.",
+      "problem": "Disk is full and a bulk cleanup of resources that are not currently in use is required.",
+      "why_this_command": "One-shot cleanup that safely targets the most common sources of wasted Docker disk space.",
+      "thinking_process": [
+        "docker system df showed significant reclaimable space.",
+        "docker system prune removes the safe, unused objects.",
+        "I can add --volumes only after confirming no important data will be lost."
+      ],
+      "syntax": "docker system prune [-a] [--volumes] [-f]",
+      "examples": [
+        "docker system prune",
+        "docker system prune -a",
+        "docker system prune -a --volumes"
+      ],
+      "expected_output": "List of deleted objects and total reclaimed space",
+      "how_to_interpret_output": "Review the list of what was deleted. Total reclaimed space should match the earlier df prediction. If space is still low, investigate volumes or the host filesystem outside Docker.",
+      "real_world_incidents": [
+        "Emergency cleanup on a production host that had accumulated months of stopped containers and dangling images.",
+        "CI runners freed tens of gigabytes after prune -a.",
+        "Accidental inclusion of --volumes deleted persistent data that was only referenced by stopped containers."
+      ],
+      "common_mistakes": [
+        "Adding --volumes without understanding that unused volumes (including those from stopped containers) will be deleted.",
+        "Running -a on a host that still needs older image tags for rollback.",
+        "Not confirming the Docker root directory is actually the one filling the disk."
+      ],
+      "what_to_check_before": [
+        "docker system df to know what will be targeted.",
+        "Ensure no important stopped containers or volumes are needed."
+      ],
+      "what_to_check_after": [
+        "docker system df and df -h to confirm space was freed.",
+        "Verify critical containers are still running."
+      ],
+      "related_commands": ["docker system df", "docker image prune", "docker volume prune", "docker container prune"],
+      "best_practices": [
+        "Start with docker system prune (no flags) for the safest cleanup.",
+        "Only add --volumes after explicit review of docker volume ls."
+      ],
+      "interview_question": "What is the difference between docker system prune and docker system prune -a --volumes?",
+      "interview_answer": "Plain prune removes stopped containers, unused networks, and dangling images. -a also removes all unused images (not just dangling). --volumes additionally deletes volumes not used by at least one container.",
+      "importance": 7,
+      "frequency": "Weekly",
+      "difficulty": "Medium",
+      "tags": ["cleanup", "disk", "prune"]
+    },
+    {
+      "id": 13,
+      "title": "View and manage container networks",
+      "command": "docker network",
+      "summary": "Lists, inspects, and manages Docker networks. Essential for connectivity between containers and to the outside world.",
+      "problem": "Containers cannot talk to each other or to external services. Is the network correct? Are they on the same bridge?",
+      "why_this_command": "Networking problems between containers are frequently caused by being attached to the wrong network or by a missing network. This command family exposes that state.",
+      "thinking_process": [
+        "Container A cannot reach container B by name or IP.",
+        "docker network ls and docker network inspect show which networks exist and which containers are attached.",
+        "I can then connect the container to the right network or fix the compose/service definition."
+      ],
+      "syntax": "docker network ls | inspect | connect | disconnect NETWORK",
+      "examples": [
+        "docker network ls",
+        "docker network inspect bridge",
+        "docker network connect mynet myapp"
+      ],
+      "expected_output": "List of networks or a detailed JSON document showing Containers, IPAM, Options, etc.",
+      "how_to_interpret_output": "Containers must share a network (or be linked via published ports) to communicate by name. inspect shows the IP addresses assigned to each container on that network. Missing attachments explain many 'connection refused' or name-resolution failures inside the Docker network.",
+      "real_world_incidents": [
+        "Service could not resolve the database hostname because it was on a different network.",
+        "Custom bridge network was deleted out from under running containers.",
+        "Container accidentally left on the default bridge and could not use service discovery."
+      ],
+      "common_mistakes": [
+        "Assuming all containers can reach each other just because they are on the same host.",
+        "Forgetting that the default bridge does not provide automatic DNS for container names.",
+        "Connecting a container to a network without understanding the security implications."
+      ],
+      "what_to_check_before": [
+        "Identify the containers that should communicate."
+      ],
+      "what_to_check_after": [
+        "docker network inspect to confirm both containers appear.",
+        "Test connectivity with docker exec and ping/curl between them."
+      ],
+      "related_commands": ["docker inspect", "docker exec", "docker compose", "ss"],
+      "best_practices": [
+        "Use user-defined bridge networks for any multi-container application so DNS works automatically.",
+        "Avoid the legacy --link feature; prefer networks."
+      ],
+      "interview_question": "Why can two containers on the default bridge network not resolve each other by name?",
+      "interview_answer": "The default bridge network does not provide automatic DNS resolution for container names. User-defined networks do. Place the containers on a custom network instead.",
+      "importance": 7,
+      "frequency": "Weekly",
+      "difficulty": "Medium",
+      "tags": ["network", "connectivity", "dns"]
+    },
+    {
+      "id": 14,
+      "title": "Copy files between host and container",
+      "command": "docker cp",
+      "summary": "Copies files or directories between the host filesystem and a container’s filesystem.",
+      "problem": "I need to extract logs, inject a config file, or grab a binary from a running or stopped container without rebuilding.",
+      "why_this_command": "The practical way to move files in or out during an incident when volumes are not available or the file is only inside the container layer.",
+      "thinking_process": [
+        "I need a file that exists only inside the container (or I need to push a temporary fix).",
+        "docker cp container:/path /host/path or the reverse moves it.",
+        "Works even on stopped containers."
+      ],
+      "syntax": "docker cp SRC DEST",
+      "examples": [
+        "docker cp myapp:/var/log/app.log ./app.log",
+        "docker cp ./fix.yaml myapp:/etc/app/config.yaml",
+        "docker cp myapp:/etc/nginx/nginx.conf -"
+      ],
+      "expected_output": "No news is good news; the file appears at the destination",
+      "how_to_interpret_output": "Success is silent. Verify with ls on the host or docker exec ls inside the container. Permission errors indicate the destination path is not writable by the Docker daemon’s user mapping.",
+      "real_world_incidents": [
+        "Extracting an application log that was not driven to stdout.",
+        "Injecting a corrected config file to test a fix before rebuilding the image.",
+        "Pulling a core dump out of a container for offline analysis."
+      ],
+      "common_mistakes": [
+        "Using paths that do not exist inside the container.",
+        "Expecting ownership/permissions to be preserved exactly across user namespaces.",
+        "Copying large directories and filling the host disk."
+      ],
+      "what_to_check_before": [
+        "Confirm the source path exists (docker exec ls if the container is running)."
+      ],
+      "what_to_check_after": [
+        "Verify the file on the destination side.",
+        "Remember that changes inside the container are lost on recreate unless the path is a volume."
+      ],
+      "related_commands": ["docker exec", "docker logs", "docker volume", "tar"],
+      "best_practices": [
+        "Prefer volumes or bind mounts for any file that must survive container recreation.",
+        "Use docker cp for emergency extraction or one-off injection only."
+      ],
+      "interview_question": "Can docker cp be used on a stopped container?",
+      "interview_answer": "Yes. docker cp works with both running and stopped containers because it operates on the container’s filesystem layers directly.",
+      "importance": 6,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["files", "copy", "debugging"]
+    },
+    {
+      "id": 15,
+      "title": "Show Docker version and system information",
+      "command": "docker version / docker info",
+      "summary": "Displays client/server versions and detailed runtime information about the Docker daemon and host.",
+      "problem": "Is the daemon running? What storage driver, cgroup version, or architecture is in use? Are client and server compatible?",
+      "why_this_command": "Quick health and environment check. Many subtle problems (storage driver, rootless mode, cgroup v1 vs v2, architecture) surface here.",
+      "thinking_process": [
+        "Docker commands are failing strangely or I need to know the environment.",
+        "docker version confirms client and server are reachable and compatible.",
+        "docker info gives storage driver, runtime, resource limits, and warnings."
+      ],
+      "syntax": "docker version | docker info",
+      "examples": [
+        "docker version",
+        "docker info",
+        "docker info --format '{{.ServerVersion}} {{.Driver}}'"
+      ],
+      "expected_output": "Client and Server version blocks, or a long list of daemon configuration fields",
+      "how_to_interpret_output": "If Server section is missing, the daemon is not reachable. Storage Driver and Cgroup Driver/Version affect behaviour. Warnings at the bottom of docker info are often high-signal. Architecture must match the images you intend to run.",
+      "real_world_incidents": [
+        "Client/server version mismatch after a partial upgrade.",
+        "Daemon not running after a host reboot (Server section absent).",
+        "Unexpected storage driver causing performance or overlay problems."
+      ],
+      "common_mistakes": [
+        "Ignoring the Warnings section of docker info.",
+        "Assuming the client version equals the server version.",
+        "Not checking architecture on mixed amd64/arm64 fleets."
+      ],
+      "what_to_check_before": [],
+      "what_to_check_after": [
+        "If daemon is unreachable → systemctl status docker / journalctl -u docker.",
+        "If storage or cgroup looks wrong → plan a controlled migration or config fix."
+      ],
+      "related_commands": ["systemctl status docker", "journalctl -u docker", "docker system df"],
+      "best_practices": [
+        "Include docker version and docker info output in any Docker-related incident report.",
+        "Keep client and server versions reasonably close."
+      ],
+      "interview_question": "docker version shows only the Client section and an error about the daemon. What does that mean?",
+      "interview_answer": "The Docker client cannot communicate with the Docker daemon. The daemon is stopped, not listening on the expected socket, or permission is denied. Check systemctl status docker and the socket permissions.",
+      "importance": 6,
+      "frequency": "Weekly",
+      "difficulty": "Easy",
+      "tags": ["daemon", "version", "environment"]
+    }
+  ]
+}
