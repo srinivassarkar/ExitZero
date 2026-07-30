@@ -6,6 +6,8 @@ import { Header } from "@/components/Header";
 import { QuestionViewer } from "@/components/QuestionViewer";
 import { SearchDialog } from "@/components/SearchDialog";
 import { SavedView } from "@/components/SavedView";
+import { RunbooksView } from "@/components/RunbooksView";
+import { IncidentLabsView } from "@/components/IncidentLabsView";
 import { CelebrationOverlay } from "@/components/CelebrationOverlay";
 import { InstallBanner } from "@/components/InstallBanner";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
@@ -458,6 +460,10 @@ export default function Home() {
               ? "Study Session"
               : activeTechId === "saved"
               ? "Bookmarks"
+              : activeTechId === "runbooks"
+              ? "Runbooks"
+              : activeTechId === "incident_labs"
+              ? "Incident Labs"
               : technologies.find((t) => t.id === activeTechId)?.name || ""
           }
           activeCategoryName={
@@ -465,6 +471,10 @@ export default function Home() {
               ? "Saved Bookmarks"
               : activeTechId === "saved"
               ? "Saved Questions List"
+              : activeTechId === "runbooks"
+              ? "Operational Procedures"
+              : activeTechId === "incident_labs"
+              ? "Troubleshooting Sandbox"
               : activeCategory?.title || ""
           }
           streakCount={streakCount}
@@ -494,6 +504,10 @@ export default function Home() {
               setIsStudyingSaved(true);
             }}
           />
+        ) : activeTechId === "runbooks" ? (
+          <RunbooksView />
+        ) : activeTechId === "incident_labs" ? (
+          <IncidentLabsView />
         ) : activeQuestion ? (
           <QuestionViewer
             question={activeQuestion}
@@ -514,7 +528,7 @@ export default function Home() {
             techId={currentQuestionTechId}
           />
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-[#94a3b8] space-y-2">
+          <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground space-y-2">
             <span className="text-3xl font-light select-none font-mono">exit 1</span>
             <p className="font-mono text-xs">No questions loaded in this subject.</p>
           </div>
