@@ -1,25 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0B0F14;
-  --foreground: #F8FAFC;
-  --card: #151B23;
-  --card-foreground: #F8FAFC;
-  --popover: #151B23;
-  --popover-foreground: #F8FAFC;
-  --primary: #00E676;
-  --primary-foreground: #0B0F14;
-  --secondary: #1B2430;
-  --secondary-foreground: #F8FAFC;
-  --muted: #1B2430;
-  --muted-foreground: #94A3B8;
-  --accent: #00C8FF;
-  --accent-foreground: #0B0F14;
-  --destructive: #FF5F56;
-  --destructive-foreground: #F8FAFC;
-  --border: #26303C;
-  --input: #26303C;
-  --ring: #00E676;
+  --background: #FFFFFF;
+  --foreground: #24292F;
+  --card: #F6F8FA;
+  --card-foreground: #24292F;
+  --popover: #FFFFFF;
+  --popover-foreground: #24292F;
+  --primary: #0969DA;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EEEEEE;
+  --secondary-foreground: #24292F;
+  --muted: #F6F8FA;
+  --muted-foreground: #57606A;
+  --accent: #0969DA;
+  --accent-foreground: #FFFFFF;
+  --destructive: #CF222E;
+  --destructive-foreground: #FFFFFF;
+  --border: #D0D7DE;
+  --input: #D0D7DE;
+  --ring: #0969DA;
   --radius: 0.5rem;
 }
 
@@ -113,9 +113,28 @@ body {
 
 .animate-cursor-blink::after {
   content: "▊";
-  color: #22c55e;
+  color: #00E676;
   animation: cursorBlink 1s step-start infinite;
   margin-left: 4px;
+}
+
+/* Brand Gradient Utilities */
+.bg-brand-gradient {
+  background: linear-gradient(135deg, #00E676 0%, #A3FF1A 100%) !important;
+}
+
+.text-brand-gradient {
+  background: linear-gradient(135deg, #00E676 0%, #A3FF1A 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.border-brand-gradient {
+  border-image: linear-gradient(135deg, #00E676 0%, #A3FF1A 100%) 1;
+}
+
+.shadow-brand-glow {
+  box-shadow: 0 0 12px rgba(0, 230, 118, 0.25);
 }
 
 /* Accessibility settings for reduced motion */

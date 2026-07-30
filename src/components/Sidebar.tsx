@@ -4,7 +4,7 @@ import React from "react";
 import { technologies, rawData, TechnologyData, Category } from "@/data";
 import { StudyStatus } from "@/hooks/useStudyState";
 import { MasteryRing } from "./MasteryRing";
-import { BookOpen, X, Heart, ChevronDown, ChevronRight, Activity } from "lucide-react";
+import { BookOpen, X, Heart, ChevronDown, ChevronRight, Activity, Terminal, ShieldAlert, Cpu } from "lucide-react";
 
 interface SidebarProps {
   activeTechId: string;
@@ -92,36 +92,61 @@ export function Sidebar({
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* Sidebar Header */}
-        <div className="h-14 border-b border-border flex items-center justify-between px-4 bg-card">
-          <div className="flex items-center space-x-2">
-            <BookOpen className="w-5 h-5 text-[#22c55e]" />
-            <h1 className="font-bold text-base tracking-tight text-foreground font-mono">
-              ExitZero
-            </h1>
+        {/* Sidebar Header with Premium Brand Console Replica Logo */}
+        <div className="h-16 border-b border-border flex items-center justify-between px-4 bg-card/85 select-none shrink-0">
+          <div className="flex items-center space-x-3">
+            {/* CSS Replica of Brand Console Logo */}
+            <div className="relative w-9 h-7 border border-[#00E676]/30 bg-[#0B0F14] rounded-md flex items-center justify-center shadow-[0_0_12px_rgba(0,230,118,0.15)] shrink-0">
+              {/* Close buttons */}
+              <div className="absolute top-1 left-1.5 flex space-x-0.5">
+                <span className="w-0.8 h-0.8 rounded-full bg-[#FF5F56]" />
+                <span className="w-0.8 h-0.8 rounded-full bg-[#FFBD2E]" />
+                <span className="w-0.8 h-0.8 rounded-full bg-[#00E676]" />
+              </div>
+              {/* Terminal prompt symbol */}
+              <span className="text-[10px] font-mono text-white mt-1.5 font-bold">&gt;_</span>
+              {/* Overlapping '0' badge */}
+              <div className="absolute -bottom-1 -right-1.5 bg-gradient-to-br from-[#00E676] to-[#A3FF1A] text-[#0B0F14] font-mono font-extrabold text-[9px] w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-md">
+                0
+              </div>
+            </div>
+            
+            <div className="flex flex-col">
+              <div className="flex items-center text-sm font-sans font-extrabold tracking-tight">
+                <span className="text-white">Exit</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00E676] to-[#A3FF1A]">Zero</span>
+              </div>
+              <span className="text-[8px] font-mono tracking-widest text-[#94a3b8] uppercase leading-none mt-0.5">
+                learn • operate
+              </span>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md text-[#475569] hover:text-foreground hover:bg-muted md:hidden"
+            className="p-1.5 rounded-md text-[#475569] hover:text-foreground hover:bg-muted md:hidden cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* List scroll container */}
-        <div className="flex-1 overflow-y-auto px-2 py-4 space-y-4 bg-card select-none">
+        <div className="flex-1 overflow-y-auto px-3 py-5 space-y-5 bg-card select-none custom-scrollbar">
+          
           {/* Module 1: Interview Prep */}
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <button
               onClick={() => toggleSection("prep")}
-              className="w-full flex items-center justify-between px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#475569] dark:text-[#94a3b8] hover:text-foreground font-mono transition-colors cursor-pointer"
+              className="w-full flex items-center justify-between px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground font-mono transition-colors cursor-pointer bg-[#151B23]/40 border border-border/30 rounded-md"
             >
-              <span>Interview Prep</span>
-              {expanded.prep ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+              <span className="flex items-center space-x-1.5">
+                <BookOpen className="w-3.5 h-3.5 text-[#00E676]" />
+                <span>Interview Prep</span>
+              </span>
+              {expanded.prep ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
             </button>
             
             {expanded.prep && (
-              <div className="space-y-1 pt-1 animate-in fade-in duration-200">
+              <div className="space-y-1 pl-1.5 border-l border-border/40 ml-2 animate-in fade-in duration-200">
                 {/* Bookmarks */}
                 <button
                   onClick={() => {
@@ -130,21 +155,21 @@ export function Sidebar({
                     setActiveQuestionId(-1);
                     onClose();
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border-l-2 ${
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-semibold font-mono transition-all duration-150 cursor-pointer border-l-2 ${
                     isSavedActive
-                      ? "bg-background text-foreground border-[#22c55e]"
-                      : "text-[#475569] border-transparent hover:text-foreground hover:bg-muted/40"
+                      ? "bg-[#1B2430]/60 text-[#00E676] border-l-[#00E676] shadow-xs"
+                      : "text-muted-foreground border-transparent hover:text-foreground hover:bg-[#151B23]/35"
                   }`}
                 >
-                  <div className="flex items-center space-x-2 truncate">
-                    <Heart className={`w-3.5 h-3.5 ${isSavedActive ? "text-[#22c55e] fill-[#22c55e]" : "text-[#475569]"}`} />
+                  <div className="flex items-center space-x-2.5 truncate">
+                    <Heart className={`w-3.5 h-3.5 ${isSavedActive ? "text-[#00E676] fill-[#00E676]" : "text-muted-foreground"}`} />
                     <span className="truncate">Saved Questions</span>
                   </div>
                   {bookmarks.length > 0 && (
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border font-mono ${
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border font-mono ${
                       isSavedActive
-                        ? "border-[#22c55e] text-[#22c55e]"
-                        : "border-border text-[#475569]"
+                        ? "border-[#00E676] text-[#00E676] bg-[#00E676]/5"
+                        : "border-border text-muted-foreground"
                     }`}>
                       {bookmarks.length}
                     </span>
@@ -173,17 +198,17 @@ export function Sidebar({
                               }
                             }
                           }}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border-l-2 ${
+                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-semibold font-mono transition-all duration-150 cursor-pointer border-l-2 ${
                             isActive
-                              ? "bg-background text-foreground border-[#22c55e]"
-                              : "text-[#475569] border-transparent hover:text-foreground hover:bg-muted/40"
+                              ? "bg-[#1B2430]/60 text-[#00E676] border-l-[#00E676] shadow-xs"
+                              : "text-muted-foreground border-transparent hover:text-foreground hover:bg-[#151B23]/35"
                           }`}
                         >
                           <div className="flex items-center space-x-2 truncate">
-                            <span className="truncate font-semibold">{tech.name}</span>
+                            <span className="truncate">{tech.name}</span>
                             {isReady && (
                               <span
-                                className="text-[9px] font-mono font-bold text-[#22c55e] bg-transparent border border-[#22c55e] rounded px-1.5 py-0.5"
+                                className="text-[8px] font-mono font-bold text-[#0B0F14] bg-gradient-to-r from-[#00E676] to-[#A3FF1A] rounded px-1 py-0.2 shrink-0 select-none shadow-xs"
                                 title="Ready to Interview"
                               >
                                 exit 0
@@ -194,13 +219,13 @@ export function Sidebar({
                           <MasteryRing
                             total={stats.total}
                             mastered={stats.mastered}
-                            size={28}
+                            size={26}
                           />
                         </button>
 
                         {/* Sub-Topics Accordion */}
                         {isActive && activeTech && !isSavedActive && (
-                          <div className="mt-0.5 ml-3 pl-2.5 border-l border-border space-y-0.5">
+                          <div className="mt-0.5 ml-4 pl-3.5 border-l border-border/40 space-y-0.5 animate-in slide-in-from-top-1 duration-150">
                             {activeTech.categories.map((cat) => {
                               const isCatActive = cat.id === activeCategoryId;
                               const catStats = getCatStats(cat);
@@ -215,16 +240,16 @@ export function Sidebar({
                                     }
                                     onClose();
                                   }}
-                                  className={`w-full flex items-center justify-between py-1.5 px-2 rounded-md text-xs transition-colors cursor-pointer border-l-2 ${
+                                  className={`w-full flex items-center justify-between py-2 px-2.5 rounded-md text-[11px] font-mono transition-all duration-150 cursor-pointer border-l-2 ${
                                     isCatActive
-                                      ? "bg-background text-foreground border-[#22c55e]"
-                                      : "text-[#475569] border-transparent hover:text-foreground hover:bg-muted/20"
+                                      ? "bg-[#1B2430]/35 text-[#00E676] border-l-[#00E676]"
+                                      : "text-muted-foreground border-transparent hover:text-foreground hover:bg-[#151B23]/20"
                                   }`}
                                 >
-                                  <span className="truncate text-left max-w-[150px] font-mono">
+                                  <span className="truncate text-left max-w-[130px]">
                                     {cat.title}
                                   </span>
-                                  <span className="text-[10px] font-bold font-mono ml-2 shrink-0 text-muted-foreground">
+                                  <span className="text-[9px] font-bold ml-2 shrink-0 text-muted-foreground">
                                     {catStats.mastered}/{catStats.total}
                                   </span>
                                 </button>
@@ -241,19 +266,22 @@ export function Sidebar({
           </div>
 
           {/* Module 2: Runbooks */}
-          <div className="space-y-1 pt-1">
+          <div className="space-y-1.5">
             <button
               onClick={() => toggleSection("runbooks")}
-              className="w-full flex items-center justify-between px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#475569] dark:text-[#94a3b8] hover:text-foreground font-mono transition-colors cursor-pointer"
+              className="w-full flex items-center justify-between px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground font-mono transition-colors cursor-pointer bg-[#151B23]/40 border border-border/30 rounded-md"
             >
-              <span>Runbooks</span>
-              {expanded.runbooks ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+              <span className="flex items-center space-x-1.5">
+                <Terminal className="w-3.5 h-3.5 text-[#00C8FF]" />
+                <span>Runbooks</span>
+              </span>
+              {expanded.runbooks ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
             </button>
             
             {expanded.runbooks && (
-              <div className="space-y-1 pt-1 animate-in fade-in duration-200">
+              <div className="space-y-1 pl-1.5 border-l border-border/40 ml-2 animate-in fade-in duration-200">
                 {/* Active Runbooks links */}
-                <div className="ml-3 pl-2.5 border-l border-border space-y-0.5">
+                <div className="space-y-0.5">
                   {[
                     { key: "linux", name: "Linux Outages" },
                     { key: "git", name: "Git Recovery" },
@@ -275,10 +303,10 @@ export function Sidebar({
                           }
                           onClose();
                         }}
-                        className={`w-full text-left py-2 px-2.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border-l-2 font-mono ${
+                        className={`w-full text-left py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer border-l-2 font-mono ${
                           isSelected
-                            ? "bg-background text-foreground border-[#22c55e]"
-                            : "text-[#475569] border-transparent hover:text-foreground hover:bg-muted/20"
+                            ? "bg-[#1B2430]/60 text-[#00E676] border-l-[#00E676] shadow-xs"
+                            : "text-muted-foreground border-transparent hover:text-foreground hover:bg-[#151B23]/35"
                         }`}
                       >
                         {item.name}
@@ -291,18 +319,21 @@ export function Sidebar({
           </div>
 
           {/* Module 3: Incident Labs */}
-          <div className="space-y-1 pt-1">
+          <div className="space-y-1.5">
             <button
               onClick={() => toggleSection("labs")}
-              className="w-full flex items-center justify-between px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#475569] dark:text-[#94a3b8] hover:text-foreground font-mono transition-colors cursor-pointer"
+              className="w-full flex items-center justify-between px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground font-mono transition-colors cursor-pointer bg-[#151B23]/40 border border-border/30 rounded-md"
             >
-              <span>Incident Labs</span>
-              {expanded.labs ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+              <span className="flex items-center space-x-1.5">
+                <ShieldAlert className="w-3.5 h-3.5 text-[#FFBD2E]" />
+                <span>Incident Labs</span>
+              </span>
+              {expanded.labs ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
             </button>
 
             {expanded.labs && (
-              <div className="space-y-1 pt-1 animate-in fade-in duration-200">
-                <div className="ml-3 pl-2.5 border-l border-border space-y-0.5">
+              <div className="space-y-1 pl-1.5 border-l border-border/40 ml-2 animate-in fade-in duration-200">
+                <div className="space-y-0.5">
                   <button
                     onClick={() => {
                       setActiveTechId("incident_labs");
@@ -310,14 +341,14 @@ export function Sidebar({
                       setActiveQuestionId(-1);
                       onClose();
                     }}
-                    className={`w-full text-left py-2 px-2.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border-l-2 font-mono flex items-center justify-between ${
+                    className={`w-full text-left py-2.5 px-3 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer border-l-2 font-mono flex items-center justify-between ${
                       activeTechId === "incident_labs"
-                        ? "bg-background text-foreground border-[#22c55e]"
-                        : "text-[#475569] border-transparent hover:text-foreground hover:bg-muted/20"
+                        ? "bg-[#1B2430]/60 text-[#00E676] border-l-[#00E676] shadow-xs"
+                        : "text-muted-foreground border-transparent hover:text-foreground hover:bg-[#151B23]/35"
                     }`}
                   >
                     <span>SRE Outage Quiz</span>
-                    <span className="text-[8px] font-mono font-bold text-amber-500 border border-amber-500/30 bg-amber-500/10 rounded px-1.5 py-0.5">
+                    <span className="text-[8px] font-mono font-bold text-amber-500 border border-amber-500/30 bg-amber-500/10 rounded px-1.5 py-0.2 shrink-0 animate-pulse">
                       Soon
                     </span>
                   </button>
@@ -328,18 +359,18 @@ export function Sidebar({
         </div>
 
         {/* Sidebar Footer */}
-        <div className="p-4 border-t border-border bg-card text-xs text-muted-foreground space-y-2 select-none">
-          <div className="flex items-center space-x-2">
-            <span className="w-2 h-2 rounded-full bg-[#22c55e]" />
-            <span className="font-mono text-[10px]">Mastered (&gt; 7 days)</span>
+        <div className="p-4 border-t border-border bg-card text-[10px] text-muted-foreground space-y-2.5 select-none shrink-0 font-mono">
+          <div className="flex items-center space-x-2.5">
+            <span className="w-2 h-2 rounded-full bg-[#00E676] shadow-[0_0_8px_rgba(0,230,118,0.4)]" />
+            <span>Mastered (&gt; 7 days)</span>
           </div>
-          <div className="flex items-center space-x-2">
-            <span className="w-2 h-2 rounded-full bg-[#2563eb]" />
-            <span className="font-mono text-[10px]">Studying (&lt; 7 days)</span>
+          <div className="flex items-center space-x-2.5">
+            <span className="w-2 h-2 rounded-full bg-[#00C8FF] shadow-[0_0_8px_rgba(0,200,255,0.4)]" />
+            <span>Studying (&lt; 7 days)</span>
           </div>
-          <div className="flex items-center space-x-2">
-            <span className="w-2 h-2 rounded-full bg-[#475569]" />
-            <span className="font-mono text-[10px]">Unseen / New</span>
+          <div className="flex items-center space-x-2.5">
+            <span className="w-2 h-2 rounded-full bg-[#26303C]" />
+            <span>Unseen / New</span>
           </div>
         </div>
       </aside>

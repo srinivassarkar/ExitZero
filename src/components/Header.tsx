@@ -99,7 +99,7 @@ export function Header({
           <Menu className="w-5 h-5" />
         </button>
         <div className="flex flex-col min-w-0">
-          <span className="text-[10px] uppercase font-bold tracking-wider text-[#22c55e] select-none">
+          <span className="text-[10px] uppercase font-extrabold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#00E676] to-[#A3FF1A] select-none font-mono">
             {activeTechName}
           </span>
           <span className="text-xs sm:text-sm font-semibold text-foreground truncate select-none max-w-[100px] min-[400px]:max-w-[140px] min-[500px]:max-w-[200px] sm:max-w-xs md:max-w-md block">
@@ -133,7 +133,7 @@ export function Header({
         >
           <Search className="w-4 h-4" />
           <span className="hidden sm:inline">Search</span>
-          <kbd className="hidden sm:inline-flex px-1 bg-card border border-[#22c55e] text-[#22c55e] rounded text-[9px] font-mono select-none">
+          <kbd className="hidden sm:inline-flex px-1.5 py-0.2 bg-card border border-[#26303C] text-[#00E676] rounded text-[9px] font-mono select-none">
             /
           </kbd>
         </button>
@@ -142,10 +142,10 @@ export function Header({
         <div className="relative flex items-center" ref={settingsRef}>
           <button
             onClick={onToggleTimerMode}
-            className={`p-1.5 md:p-2 rounded-lg flex items-center space-x-1.5 text-xs font-bold transition-all border cursor-pointer ${
+            className={`p-1.5 md:p-2 rounded-lg flex items-center space-x-1.5 text-xs font-bold font-mono transition-all border cursor-pointer ${
               timerMode
-                ? "border-[#2563eb] text-[#2563eb] bg-transparent"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted"
+                ? "border-[#00C8FF] text-[#00C8FF] bg-transparent shadow-[0_0_8px_rgba(0,200,255,0.15)]"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/40"
             }`}
             title={timerMode ? "Deactivate Timer Mode" : "Activate Timer Mode"}
           >
@@ -177,8 +177,8 @@ export function Header({
                       key={sec}
                       className={`flex items-center justify-center p-1 rounded-lg text-[10px] font-mono font-bold border cursor-pointer transition-all ${
                         timerDuration === sec
-                          ? "border-[#2563eb] text-[#2563eb] bg-transparent"
-                          : "border-border text-muted-foreground hover:text-foreground"
+                          ? "border-[#00C8FF] text-[#00C8FF] bg-[#00C8FF]/5"
+                          : "border-border text-muted-foreground hover:text-foreground hover:bg-secondary/20"
                       }`}
                     >
                       <input
@@ -204,12 +204,12 @@ export function Header({
                   <button
                     onClick={onToggleTimerAutoAdvance}
                     className={`w-9 h-5 rounded-full relative transition-colors duration-200 cursor-pointer border ${
-                      timerAutoAdvance ? "border-[#22c55e]" : "border-[#475569]"
+                      timerAutoAdvance ? "border-[#00E676]" : "border-[#26303C]"
                     }`}
                   >
                     <span
                       className={`w-3 h-3 rounded-full absolute top-0.75 left-0.75 transition-transform duration-200 ${
-                        timerAutoAdvance ? "translate-x-4 bg-[#22c55e]" : "translate-x-0 bg-[#475569]"
+                        timerAutoAdvance ? "translate-x-4 bg-gradient-to-r from-[#00E676] to-[#A3FF1A]" : "translate-x-0 bg-[#475569]"
                       }`}
                     />
                   </button>
@@ -222,12 +222,12 @@ export function Header({
                   <button
                     onClick={onToggleAutoReveal}
                     className={`w-9 h-5 rounded-full relative transition-colors duration-200 cursor-pointer border ${
-                      autoRevealEnabled ? "border-[#22c55e]" : "border-[#475569]"
+                      autoRevealEnabled ? "border-[#00E676]" : "border-[#26303C]"
                     }`}
                   >
                     <span
                       className={`w-3 h-3 rounded-full absolute top-0.75 left-0.75 transition-transform duration-200 ${
-                        autoRevealEnabled ? "translate-x-4 bg-[#22c55e]" : "translate-x-0 bg-[#475569]"
+                        autoRevealEnabled ? "translate-x-4 bg-gradient-to-r from-[#00E676] to-[#A3FF1A]" : "translate-x-0 bg-[#475569]"
                       }`}
                     />
                   </button>
@@ -240,12 +240,12 @@ export function Header({
                   <button
                     onClick={onToggleSoundHaptics}
                     className={`w-9 h-5 rounded-full relative transition-colors duration-200 cursor-pointer border ${
-                      soundHapticsEnabled ? "border-[#22c55e]" : "border-[#475569]"
+                      soundHapticsEnabled ? "border-[#00E676]" : "border-[#26303C]"
                     }`}
                   >
                     <span
                       className={`w-3 h-3 rounded-full absolute top-0.75 left-0.75 transition-transform duration-200 ${
-                        soundHapticsEnabled ? "translate-x-4 bg-[#22c55e]" : "translate-x-0 bg-[#475569]"
+                        soundHapticsEnabled ? "translate-x-4 bg-gradient-to-r from-[#00E676] to-[#A3FF1A]" : "translate-x-0 bg-[#475569]"
                       }`}
                     />
                   </button>
