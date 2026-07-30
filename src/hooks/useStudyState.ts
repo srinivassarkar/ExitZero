@@ -35,6 +35,14 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
   const [timerDuration, setTimerDuration] = useState(90);
   const [timerAutoAdvance, setTimerAutoAdvance] = useState(true);
 
+  // Sound & Haptics Toggles
+  const [soundHapticsEnabled, setSoundHapticsEnabled] = useState(true);
+  const [autoRevealEnabled, setAutoRevealEnabled] = useState(false);
+
+  // Custom Notification Reminder Time & Exclusions
+  const [notificationTime, setNotificationTime] = useState("21:00");
+  const [difficultyExclusions, setDifficultyExclusions] = useState<string[]>([]);
+
   // Install State
   const [sessionCount, setSessionCount] = useState(0);
   const [installDismissed, setInstallDismissed] = useState(false);
@@ -75,6 +83,22 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
       // 6. Notification Permission Status
       const storedNotif = localStorage.getItem("exitzero_notif_permission");
       if (storedNotif) setNotifPermission(storedNotif as any);
+
+      // 9. Sound & Haptics Toggle
+      const storedSound = localStorage.getItem("exitzero_sound_haptics");
+      if (storedSound !== null) setSoundHapticsEnabled(JSON.parse(storedSound));
+
+      // 10. Auto-Reveal Answer Toggle
+      const storedReveal = localStorage.getItem("exitzero_auto_reveal");
+      if (storedReveal !== null) setAutoRevealEnabled(JSON.parse(storedReveal));
+
+      // 11. Custom Notification Reminder Time
+      const storedNotifTime = localStorage.getItem("exitzero_notification_time");
+      if (storedNotifTime) setNotificationTime(storedNotifTime);
+
+      // 12. Difficulty Exclusions
+      const storedExclusions = localStorage.getItem("exitzero_difficulty_exclusions");
+      if (storedExclusions) setDifficultyExclusions(JSON.parse(storedExclusions));
 
       // 7. Session Counter
       const storedSessions = localStorage.getItem("exitzero_session_count");
@@ -251,6 +275,44 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
     localStorage.setItem("exitzero_notif_permission", status);
   };
 
+  // Setters for Sound & Haptics, Auto-Reveal, Custom Time, and Exclusions
+  const toggleSoundHaptics = () => {
+    setSoundHapticsEnabled((prev) => {
+      const updated = !prev;
+      localStorage.setItem("exitzero_sound_haptics", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const toggleAutoReveal = () => {
+    setAutoRevealEnabled((prev) => {
+      const updated = !prev;
+      localStorage.setItem("exitzero_auto_reveal", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const updateNotificationTime = (time: string) => {
+    setNotificationTime(time);
+    localStorage.setItem("exitzero_notification_time", time);
+    if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: "UPDATE_NOTIF_TIME",
+        time: time,
+      });
+    }
+  };
+
+  const toggleDifficultyExclusion = (difficulty: string) => {
+    setDifficultyExclusions((prev) => {
+      const updated = prev.includes(difficulty)
+        ? prev.filter((d) => d !== difficulty)
+        : [...prev, difficulty];
+      localStorage.setItem("exitzero_difficulty_exclusions", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   // Derive progress mapping from SRS statuses (using string composite keys)
   const progress: Record<string, StudyStatus> = {};
   Object.entries(srsData).forEach(([key, data]) => {
@@ -271,6 +333,10 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
     sessionCount,
     installDismissed,
     notifPermission,
+    soundHapticsEnabled,
+    autoRevealEnabled,
+    notificationTime,
+    difficultyExclusions,
     toggleBookmark,
     processSRSReview,
     updateLastViewed,
@@ -279,5 +345,9 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
     toggleTimerAutoAdvance,
     dismissInstallPrompt,
     updateNotifPermission,
+    toggleSoundHaptics,
+    toggleAutoReveal,
+    updateNotificationTime,
+    toggleDifficultyExclusion,
   };
 }

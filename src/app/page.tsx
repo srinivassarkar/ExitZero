@@ -11,6 +11,7 @@ import { InstallBanner } from "@/components/InstallBanner";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
 import { rawData, technologies, Question, Category, allQuestions } from "@/data";
 import { useStudyState, StudyStatus } from "@/hooks/useStudyState";
+import { playSoundEffect, triggerHapticFeedback } from "@/utils/audio";
 
 interface ToastItem {
   id: string;
@@ -54,6 +55,10 @@ export default function Home() {
     sessionCount,
     installDismissed,
     notifPermission,
+    soundHapticsEnabled,
+    autoRevealEnabled,
+    notificationTime,
+    difficultyExclusions,
     toggleBookmark,
     processSRSReview,
     updateLastViewed,
@@ -62,6 +67,10 @@ export default function Home() {
     toggleTimerAutoAdvance,
     dismissInstallPrompt,
     updateNotifPermission,
+    toggleSoundHaptics,
+    toggleAutoReveal,
+    updateNotificationTime,
+    toggleDifficultyExclusion,
     progress,
   } = useStudyState(addToast);
 
@@ -160,6 +169,11 @@ export default function Home() {
           }
         }
       }
+    }
+
+    // Filter base questions by difficulty exclusions
+    if (difficultyExclusions && difficultyExclusions.length > 0) {
+      baseQuestions = baseQuestions.filter((q) => !difficultyExclusions.includes(q.difficulty));
     }
 
     if (baseQuestions.length === 0) {
@@ -327,6 +341,27 @@ export default function Home() {
     setActiveQueueIndex(rand);
   };
 
+  const handleToggleFavorite = () => {
+    toggleBookmark(currentQuestionCompositeId);
+    if (soundHapticsEnabled) {
+      playSoundEffect("click");
+      triggerHapticFeedback("light");
+    }
+  };
+
+  const handleSRSReview = (score: "Again" | "Good" | "Easy") => {
+    processSRSReview(currentQuestionCompositeId, score);
+    if (soundHapticsEnabled) {
+      if (score === "Again") {
+        playSoundEffect("warning");
+        triggerHapticFeedback("heavy");
+      } else {
+        playSoundEffect("success");
+        triggerHapticFeedback("medium");
+      }
+    }
+  };
+
   const handleSelectQuestion = (techId: string, categoryId: number, questionId: number) => {
     setIsStudyingSaved(false);
     setActiveTechId(techId);
@@ -440,6 +475,14 @@ export default function Home() {
           onUpdateTimerDuration={updateTimerDuration}
           timerAutoAdvance={timerAutoAdvance}
           onToggleTimerAutoAdvance={toggleTimerAutoAdvance}
+          soundHapticsEnabled={soundHapticsEnabled}
+          onToggleSoundHaptics={toggleSoundHaptics}
+          autoRevealEnabled={autoRevealEnabled}
+          onToggleAutoReveal={toggleAutoReveal}
+          notificationTime={notificationTime}
+          onUpdateNotificationTime={updateNotificationTime}
+          difficultyExclusions={difficultyExclusions}
+          onToggleDifficultyExclusion={toggleDifficultyExclusion}
         />
 
         {/* Content routing view */}
@@ -459,8 +502,10 @@ export default function Home() {
             timerMode={timerMode}
             timerDuration={timerDuration}
             timerAutoAdvance={timerAutoAdvance}
-            onToggleFavorite={() => toggleBookmark(currentQuestionCompositeId)}
-            onSRSReview={(score) => processSRSReview(currentQuestionCompositeId, score)}
+            autoRevealEnabled={autoRevealEnabled}
+            soundHapticsEnabled={soundHapticsEnabled}
+            onToggleFavorite={handleToggleFavorite}
+            onSRSReview={handleSRSReview}
             onPrev={handlePrev}
             onNext={handleNext}
             onRandom={handleRandom}

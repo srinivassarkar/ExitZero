@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Question } from "@/data";
 import { StudyStatus, SRSData } from "@/hooks/useStudyState";
+import { triggerHapticFeedback } from "@/utils/audio";
 import {
   Heart,
   ChevronLeft,
@@ -25,6 +26,8 @@ interface QuestionViewerProps {
   timerMode: boolean;
   timerDuration: number;
   timerAutoAdvance: boolean;
+  autoRevealEnabled: boolean;
+  soundHapticsEnabled: boolean;
   onToggleFavorite: () => void;
   onSRSReview: (score: "Again" | "Good" | "Easy") => void;
   onPrev: () => void;
@@ -42,6 +45,8 @@ export function QuestionViewer({
   timerMode,
   timerDuration,
   timerAutoAdvance,
+  autoRevealEnabled,
+  soundHapticsEnabled,
   onToggleFavorite,
   onSRSReview,
   onPrev,
@@ -51,7 +56,7 @@ export function QuestionViewer({
   isScopedSession = false,
   techId,
 }: QuestionViewerProps) {
-  const [showAnswer, setShowAnswer] = useState(false);
+  const [showAnswer, setShowAnswer] = useState(autoRevealEnabled);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [animateHeart, setAnimateHeart] = useState(false);
 
@@ -62,7 +67,7 @@ export function QuestionViewer({
 
   // Reset answer visibility and timer when question changes
   useEffect(() => {
-    setShowAnswer(false);
+    setShowAnswer(autoRevealEnabled);
     setTimeLeft(timerDuration);
     
     // Clear any existing timeouts/intervals
@@ -77,7 +82,7 @@ export function QuestionViewer({
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       if (autoAdvanceTimeoutRef.current) clearTimeout(autoAdvanceTimeoutRef.current);
     };
-  }, [question.id, timerMode, timerDuration]);
+  }, [question.id, timerMode, timerDuration, autoRevealEnabled]);
 
   // Start timer interval
   const startTimer = () => {
@@ -116,6 +121,9 @@ export function QuestionViewer({
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
+    if (soundHapticsEnabled) {
+      triggerHapticFeedback("light");
+    }
     setTimeout(() => setCopiedId(null), 2000);
   };
 

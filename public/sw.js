@@ -1,4 +1,4 @@
-const CACHE_NAME = "exitzero-v3";
+const CACHE_NAME = "exitzero-v4";
 const ASSETS = [
   "./",
   "./index.html",
@@ -88,30 +88,72 @@ self.addEventListener("fetch", (event) => {
 
 // Message listener to receive state from client
 self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "UPDATE_LAST_ACTIVE") {
-    const lastActiveDate = event.data.date;
-    event.waitUntil(
-      caches.open("exitzero-state").then((cache) => {
-        return cache.put("/last-active", new Response(lastActiveDate));
-      })
-    );
+  if (event.data) {
+    if (event.data.type === "UPDATE_LAST_ACTIVE") {
+      const lastActiveDate = event.data.date;
+      event.waitUntil(
+        caches.open("exitzero-state").then((cache) => {
+          return cache.put("/last-active", new Response(lastActiveDate));
+        })
+      );
+    } else if (event.data.type === "UPDATE_NOTIF_TIME") {
+      const time = event.data.time;
+      event.waitUntil(
+        caches.open("exitzero-state").then((cache) => {
+          return cache.put("/notif-time", new Response(time)).then(() => {
+            scheduleNextCheck();
+          });
+        })
+      );
+    }
   }
 });
 
 // Daily notification reminder schedule
-function scheduleNextCheck() {
-  const now = new Date();
-  const target = new Date();
-  target.setHours(21, 0, 0, 0); // 9:00 PM
-  if (now > target) {
-    target.setDate(target.getDate() + 1);
-  }
-  const delay = target.getTime() - now.getTime();
+let checkTimeout = null;
 
-  setTimeout(() => {
-    checkAndNotify();
-    scheduleNextCheck();
-  }, delay);
+function scheduleNextCheck() {
+  if (checkTimeout) {
+    clearTimeout(checkTimeout);
+    checkTimeout = null;
+  }
+
+  caches.open("exitzero-state")
+    .then((cache) => cache.match("/notif-time"))
+    .then((response) => (response ? response.text() : "21:00"))
+    .then((timeStr) => {
+      const parts = timeStr.split(":");
+      const targetHour = parseInt(parts[0], 10) || 21;
+      const targetMin = parseInt(parts[1], 10) || 0;
+
+      const now = new Date();
+      const target = new Date();
+      target.setHours(targetHour, targetMin, 0, 0);
+
+      if (now > target) {
+        target.setDate(target.getDate() + 1);
+      }
+      
+      const delay = target.getTime() - now.getTime();
+
+      checkTimeout = setTimeout(() => {
+        checkAndNotify();
+        scheduleNextCheck();
+      }, delay);
+    })
+    .catch((err) => {
+      console.error("Error scheduling reminder check:", err);
+      const now = new Date();
+      const target = new Date();
+      target.setHours(21, 0, 0, 0);
+      if (now > target) {
+        target.setDate(target.getDate() + 1);
+      }
+      checkTimeout = setTimeout(() => {
+        checkAndNotify();
+        scheduleNextCheck();
+      }, target.getTime() - now.getTime());
+    });
 }
 
 function checkAndNotify() {
