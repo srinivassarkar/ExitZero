@@ -1,114 +1,74 @@
+<p align="center">
+  <img src="./public/banner.png" alt="ExitZero Banner" width="100%">
+</p>
+
 # ExitZero 💻
 
-> **`$ exit 0` — Interview prep for engineers.**
+> **`$ exit 0` — Premium DevOps Learning Platform & Operational Playbooks.**
 
-A DevOps interview prep PWA covering Docker, Kubernetes, AWS, Terraform, Jenkins, and DevOps fundamentals. Study on any device, install it as a mobile app, and use it offline.
+ExitZero is a developer-native, high-performance study console and troubleshooting reference for DevOps engineers. Designed to feel like GitHub, VS Code, and Warp Terminal.
 
-[![Deployed on GitHub Pages](https://img.shields.io/badge/Deployed-GitHub%20Pages-22c55e?style=flat-square&logo=github)](https://srinivassarkar.github.io/ExitZero)
+[![Deployed on GitHub Pages](https://img.shields.io/badge/Deployed-GitHub%20Pages-00E676?style=flat-square&logo=github)](https://srinivassarkar.github.io/ExitZero)
 ![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js)
-![PWA](https://img.shields.io/badge/PWA-Ready-2563eb?style=flat-square)
+![TailwindCSS](https://img.shields.io/badge/TailwindCSS-v4-00C8FF?style=flat-square&logo=tailwindcss)
+![PWA](https://img.shields.io/badge/PWA-Ready-00E676?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-f1f5f9?style=flat-square)
 
 ---
 
-## What is ExitZero?
+## Workspaces
 
-ExitZero is a progressive web app built for DevOps and cloud engineers preparing for technical interviews. `exit 0` in bash means success — no errors, clean run. That's the goal.
+ExitZero is structured into three clean, developer-native modules:
 
-600+ curated questions across 6 topics, organized by category and difficulty. Mark questions as Studying or Mastered, track your progress, and install the app on your phone for offline access during your commute or before an interview.
+### 1. 🗂️ Interview Prep
+- **Spaced Repetition (SM-2)**: Smart review queues sorted by recall strength and study state.
+- **6 Curated Topics**: Docker, Kubernetes, AWS, Terraform, Jenkins, and DevOps (600+ questions).
+- **Study Customizations**: Auto-reveal answers, difficulty gating exclusions (Easy/Medium/Hard), and auto-advance timers.
 
----
+### 2. 📓 Operational Runbooks
+- **On-Call Playbooks**: Diagnostic troubleshooting references for Linux, Git, Networking, Docker, Kubernetes, and Terraform.
+- **Interactive Console**: Dual-pane command browser with copy-to-clipboard audio/haptic clicks, syntax schemas, and self-test flashcards.
+- **Diagnostics Logs**: Chronological thinking process logs, expected terminal output strings, and real-world outage post-mortems.
 
-## Topics Covered
-
-| Subject | Questions |
-|---|---|
-| 🐳 Docker | 100 |
-| ☸️ Kubernetes | 100 |
-| ☁️ AWS | 100 |
-| 🌍 Terraform | 100 |
-| 🔧 Jenkins | 180 |
-| ⚙️ DevOps | 145 |
+### 3. 🛡️ Incident Labs
+- **Outage Quiz**: Snappy, multiple-choice incident sandbox. Analyze live metrics, query traces, and select recovery hotfixes on a virtual terminal.
 
 ---
 
-## Features
+## Engineering Features
 
-- **Study Mode** — Browse questions by topic and category, reveal answers on demand
-- **Progress Tracking** — Mark each question as Unmarked / Studying / Mastered
-- **Difficulty Levels** — Easy, Medium, and Hard questions per topic
-- **Offline Ready** — Full PWA with service worker caching, works without internet
-- **Installable** — Add to home screen on Android and iOS, works like a native app
-- **Persistent Progress** — All study state saved locally, survives refresh and reinstall
-- **Search** — Find any question across all topics instantly
-- **Bookmarks** — Save questions to review later
+- **Audio Synthesis Engine**: Zero-dependency Web Audio synthesizer. Generates pure chime and click tones dynamically without loading external MP3 files.
+- **Native Haptic Pulses**: Mobile-responsive haptic vibrations on question reviews, code copies, and answer reveals.
+- **Offline PWA Engine**: Custom Service Worker caching lifecycle with standalone offline support.
+- **State Persistence**: Secure, client-only local storage state tracking. No tracking or database logins.
 
 ---
 
-## Tech Stack
-
-- **Framework** — Next.js 15 (static export)
-- **Styling** — Tailwind CSS
-- **Deployment** — GitHub Pages via GitHub Actions
-- **PWA** — Service worker, web app manifest, offline cache
-- **Data** — Static JSON question bank, no backend required
-
----
-
-## Running Locally
+## Local Development
 
 ```bash
+# Clone the repository
 git clone https://github.com/srinivassarkar/ExitZero.git
 cd ExitZero
+
+# Install packages
 npm install
+
+# Run dev server
 npm run dev
-```
 
-Open [http://localhost:3000](http://localhost:3000)
-
-**Build for production:**
-
-```bash
+# Compile static release export
 npm run build
 ```
 
-Static output goes to `/out` — ready to deploy anywhere.
+Static output compiles to `/out` — optimized for zero-latency hosting.
 
 ---
 
-## Project Structure
-
-```
-ExitZero/
-├── .github/workflows/    # GitHub Actions CI/CD
-├── public/               # Static assets, icons, manifest
-├── src/                  # Next.js app source (contains src/data/ static question banks)
-├── next.config.ts
-└── package.json
-```
-
----
-
-## Deployment
-
-The app is automatically deployed to GitHub Pages on every push to `main` via GitHub Actions. The workflow builds the Next.js static export and pushes to the `gh-pages` branch.
-
----
-
-## Contributing
-
-Questions, corrections, or new topics — PRs are welcome.
-
-1. Fork the repo
-2. Create a branch: `git checkout -b feat/your-feature`
-3. Commit: `git commit -m "feat: your change"`
-4. Push and open a PR
-
----
-
-## License
-
-MIT — free to use, fork, and build on.
+## Design Specifications
+- **Typography**: **Inter** (Body text & readouts) & **JetBrains Mono** (System headers & console logs).
+- **Theme**: High-contrast, dark-first workbench palette (`#0B0F14` Background, `#151B23` Surface, `#00E676` Brand green, `#26303C` Borders).
+- **UI Elements**: Flat minimal cards (12px rounded), high-contrast hover states, and thin progress indicators.
 
 ---
 
