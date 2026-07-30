@@ -4,7 +4,7 @@ import React from "react";
 import { technologies, rawData, TechnologyData, Category } from "@/data";
 import { StudyStatus } from "@/hooks/useStudyState";
 import { MasteryRing } from "./MasteryRing";
-import { BookOpen, X } from "lucide-react";
+import { BookOpen, X, Heart, ChevronDown, ChevronRight, Activity } from "lucide-react";
 
 interface SidebarProps {
   activeTechId: string;
@@ -29,6 +29,18 @@ export function Sidebar({
   isOpen,
   onClose,
 }: SidebarProps) {
+  const [expanded, setExpanded] = React.useState<Record<string, boolean>>({
+    prep: true,
+    runbooks: false,
+    labs: false,
+  });
+
+  const toggleSection = (section: string) => {
+    setExpanded((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
   
   // Calculate technology stats
   const getTechStats = (techId: string) => {
@@ -93,188 +105,208 @@ export function Sidebar({
         </div>
 
         {/* List scroll container */}
-        <div className="flex-1 overflow-y-auto px-2 py-4 space-y-5 bg-card">
+        <div className="flex-1 overflow-y-auto px-2 py-4 space-y-4 bg-card select-none">
           {/* Module 1: Interview Prep */}
-          <div className="space-y-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#475569] px-3 block font-mono select-none">
-              Interview Prep
-            </span>
-            <div className="space-y-1">
-              {/* Bookmarks */}
-              <button
-                onClick={() => {
-                  setActiveTechId("saved");
-                  setActiveCategoryId(-1);
-                  setActiveQuestionId(-1);
-                  onClose();
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border-l-2 ${
-                  isSavedActive
-                    ? "bg-background text-foreground border-[#22c55e]"
-                    : "text-[#475569] border-transparent hover:text-foreground hover:bg-muted/40"
-                }`}
-              >
-                <div className="flex items-center space-x-2.5 truncate">
-                  <span className={`text-base select-none ${isSavedActive ? "text-[#22c55e]" : "text-[#475569]"}`}>
-                    ♥
-                  </span>
-                  <span className="truncate">Saved Questions</span>
-                </div>
-                {bookmarks.length > 0 && (
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border font-mono ${
+          <div className="space-y-1">
+            <button
+              onClick={() => toggleSection("prep")}
+              className="w-full flex items-center justify-between px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#475569] dark:text-[#94a3b8] hover:text-foreground font-mono transition-colors cursor-pointer"
+            >
+              <span>Interview Prep</span>
+              {expanded.prep ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
+            
+            {expanded.prep && (
+              <div className="space-y-1 pt-1 animate-in fade-in duration-200">
+                {/* Bookmarks */}
+                <button
+                  onClick={() => {
+                    setActiveTechId("saved");
+                    setActiveCategoryId(-1);
+                    setActiveQuestionId(-1);
+                    onClose();
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border-l-2 ${
                     isSavedActive
-                      ? "border-[#22c55e] text-[#22c55e]"
-                      : "border-border text-[#475569]"
-                  }`}>
-                    {bookmarks.length}
-                  </span>
-                )}
-              </button>
+                      ? "bg-background text-foreground border-[#22c55e]"
+                      : "text-[#475569] border-transparent hover:text-foreground hover:bg-muted/40"
+                  }`}
+                >
+                  <div className="flex items-center space-x-2 truncate">
+                    <Heart className={`w-3.5 h-3.5 ${isSavedActive ? "text-[#22c55e] fill-[#22c55e]" : "text-[#475569]"}`} />
+                    <span className="truncate">Saved Questions</span>
+                  </div>
+                  {bookmarks.length > 0 && (
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border font-mono ${
+                      isSavedActive
+                        ? "border-[#22c55e] text-[#22c55e]"
+                        : "border-border text-[#475569]"
+                    }`}>
+                      {bookmarks.length}
+                    </span>
+                  )}
+                </button>
 
-              {/* Technologies List */}
-              <nav className="space-y-1">
-                {technologies.map((tech) => {
-                  const isActive = tech.id === activeTechId;
-                  const stats = getTechStats(tech.id);
-                  const percent = stats.total > 0 ? Math.round((stats.mastered / stats.total) * 100) : 0;
-                  const isReady = percent >= 80;
+                {/* Technologies List */}
+                <nav className="space-y-0.5">
+                  {technologies.map((tech) => {
+                    const isActive = tech.id === activeTechId;
+                    const stats = getTechStats(tech.id);
+                    const percent = stats.total > 0 ? Math.round((stats.mastered / stats.total) * 100) : 0;
+                    const isReady = percent >= 80;
 
-                  return (
-                    <div key={tech.id} className="space-y-0.5">
-                      <button
-                        onClick={() => {
-                          setActiveTechId(tech.id);
-                          const techData = rawData[tech.id];
-                          if (techData && techData.categories.length > 0) {
-                            const firstCat = techData.categories[0];
-                            setActiveCategoryId(firstCat.id);
-                            if (firstCat.questions.length > 0) {
-                              setActiveQuestionId(firstCat.questions[0].id);
+                    return (
+                      <div key={tech.id} className="space-y-0.5">
+                        <button
+                          onClick={() => {
+                            setActiveTechId(tech.id);
+                            const techData = rawData[tech.id];
+                            if (techData && techData.categories.length > 0) {
+                              const firstCat = techData.categories[0];
+                              setActiveCategoryId(firstCat.id);
+                              if (firstCat.questions.length > 0) {
+                                  setActiveQuestionId(firstCat.questions[0].id);
+                              }
                             }
-                          }
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border-l-2 ${
-                          isActive
-                            ? "bg-background text-foreground border-[#22c55e]"
-                            : "text-[#475569] border-transparent hover:text-foreground hover:bg-muted/40"
-                        }`}
-                      >
-                        <div className="flex items-center space-x-2 truncate">
-                          <span className="truncate font-semibold">{tech.name}</span>
-                          {isReady && (
-                            <span
-                              className="text-[9px] font-mono font-bold text-[#22c55e] bg-transparent border border-[#22c55e] rounded px-1.5 py-0.5"
-                              title="Ready to Interview"
-                            >
-                              exit 0
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Circular Progress Ring */}
-                        <MasteryRing
-                          total={stats.total}
-                          mastered={stats.mastered}
-                          size={28}
-                        />
-                      </button>
-
-                      {/* Sub-Topics Accordion (only for active tech) */}
-                      {isActive && activeTech && !isSavedActive && (
-                        <div className="mt-0.5 ml-3 pl-2.5 border-l border-border space-y-0.5">
-                          {activeTech.categories.map((cat) => {
-                            const isCatActive = cat.id === activeCategoryId;
-                            const catStats = getCatStats(cat);
-                            
-                            return (
-                              <button
-                                key={cat.id}
-                                onClick={() => {
-                                  setActiveCategoryId(cat.id);
-                                  if (cat.questions.length > 0) {
-                                    setActiveQuestionId(cat.questions[0].id);
-                                  }
-                                  onClose();
-                                }}
-                                className={`w-full flex items-center justify-between py-1.5 px-2 rounded-md text-xs transition-colors cursor-pointer border-l-2 ${
-                                  isCatActive
-                                    ? "bg-background text-foreground border-[#22c55e]"
-                                    : "text-[#475569] border-transparent hover:text-foreground hover:bg-muted/20"
-                                }`}
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border-l-2 ${
+                            isActive
+                              ? "bg-background text-foreground border-[#22c55e]"
+                              : "text-[#475569] border-transparent hover:text-foreground hover:bg-muted/40"
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2 truncate">
+                            <span className="truncate font-semibold">{tech.name}</span>
+                            {isReady && (
+                              <span
+                                className="text-[9px] font-mono font-bold text-[#22c55e] bg-transparent border border-[#22c55e] rounded px-1.5 py-0.5"
+                                title="Ready to Interview"
                               >
-                                <span className="truncate text-left max-w-[150px] font-mono">
-                                  {cat.title}
-                                </span>
-                                <span className="text-[10px] font-bold font-mono ml-2 shrink-0 text-muted-foreground">
-                                  {catStats.mastered}/{catStats.total}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </nav>
-            </div>
+                                exit 0
+                              </span>
+                            )}
+                          </div>
+
+                          <MasteryRing
+                            total={stats.total}
+                            mastered={stats.mastered}
+                            size={28}
+                          />
+                        </button>
+
+                        {/* Sub-Topics Accordion */}
+                        {isActive && activeTech && !isSavedActive && (
+                          <div className="mt-0.5 ml-3 pl-2.5 border-l border-border space-y-0.5">
+                            {activeTech.categories.map((cat) => {
+                              const isCatActive = cat.id === activeCategoryId;
+                              const catStats = getCatStats(cat);
+                              
+                              return (
+                                <button
+                                  key={cat.id}
+                                  onClick={() => {
+                                    setActiveCategoryId(cat.id);
+                                    if (cat.questions.length > 0) {
+                                      setActiveQuestionId(cat.questions[0].id);
+                                    }
+                                    onClose();
+                                  }}
+                                  className={`w-full flex items-center justify-between py-1.5 px-2 rounded-md text-xs transition-colors cursor-pointer border-l-2 ${
+                                    isCatActive
+                                      ? "bg-background text-foreground border-[#22c55e]"
+                                      : "text-[#475569] border-transparent hover:text-foreground hover:bg-muted/20"
+                                  }`}
+                                >
+                                  <span className="truncate text-left max-w-[150px] font-mono">
+                                    {cat.title}
+                                  </span>
+                                  <span className="text-[10px] font-bold font-mono ml-2 shrink-0 text-muted-foreground">
+                                    {catStats.mastered}/{catStats.total}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </nav>
+              </div>
+            )}
           </div>
 
           {/* Module 2: Runbooks */}
-          <div className="space-y-1.5 pt-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#475569] px-3 block font-mono select-none">
-              Runbooks
-            </span>
+          <div className="space-y-1 pt-1">
             <button
-              onClick={() => {
-                setActiveTechId("runbooks");
-                setActiveCategoryId(-1);
-                setActiveQuestionId(-1);
-                onClose();
-              }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border-l-2 ${
-                activeTechId === "runbooks"
-                  ? "bg-background text-foreground border-[#22c55e]"
-                  : "text-[#475569] border-transparent hover:text-foreground hover:bg-muted/40"
-              }`}
+              onClick={() => toggleSection("runbooks")}
+              className="w-full flex items-center justify-between px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#475569] dark:text-[#94a3b8] hover:text-foreground font-mono transition-colors cursor-pointer"
             >
-              <div className="flex items-center space-x-2.5 truncate">
-                <span className={`text-base select-none ${activeTechId === "runbooks" ? "text-[#22c55e]" : "text-[#475569]"}`}>
-                  📖
-                </span>
-                <span className="truncate font-semibold">Operational Guides</span>
-              </div>
+              <span>Runbooks</span>
+              {expanded.runbooks ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
             </button>
+            
+            {expanded.runbooks && (
+              <div className="space-y-1 pt-1 animate-in fade-in duration-200">
+                {/* Active Runbooks links */}
+                <div className="ml-3 pl-2.5 border-l border-border space-y-0.5">
+                  {["K8s Control Plane Upgrade", "Private Docker Registry", "AWS IAM Policy Audit"].map((name, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setActiveTechId("runbooks");
+                        setActiveCategoryId(-1);
+                        setActiveQuestionId(-1);
+                        onClose();
+                      }}
+                      className={`w-full text-left py-2 px-2.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border-l-2 font-mono ${
+                        activeTechId === "runbooks"
+                          ? "bg-background text-foreground border-[#22c55e]"
+                          : "text-[#475569] border-transparent hover:text-foreground hover:bg-muted/20"
+                      }`}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Module 3: Incident Labs */}
-          <div className="space-y-1.5 pt-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#475569] px-3 block font-mono select-none">
-              Incident Labs
-            </span>
+          <div className="space-y-1 pt-1">
             <button
-              onClick={() => {
-                setActiveTechId("incident_labs");
-                setActiveCategoryId(-1);
-                setActiveQuestionId(-1);
-                onClose();
-              }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border-l-2 ${
-                activeTechId === "incident_labs"
-                  ? "bg-background text-foreground border-[#22c55e]"
-                  : "text-[#475569] border-transparent hover:text-foreground hover:bg-muted/40"
-              }`}
+              onClick={() => toggleSection("labs")}
+              className="w-full flex items-center justify-between px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#475569] dark:text-[#94a3b8] hover:text-foreground font-mono transition-colors cursor-pointer"
             >
-              <div className="flex items-center space-x-2.5 truncate">
-                <span className={`text-base select-none ${activeTechId === "incident_labs" ? "text-[#22c55e]" : "text-[#475569]"}`}>
-                  🚨
-                </span>
-                <span className="truncate font-semibold">Incident Sandbox</span>
-              </div>
-              <span className="text-[9px] font-mono font-bold text-amber-500 border border-amber-500/30 bg-amber-500/10 rounded px-1.5 py-0.5">
-                Soon
-              </span>
+              <span>Incident Labs</span>
+              {expanded.labs ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
             </button>
+
+            {expanded.labs && (
+              <div className="space-y-1 pt-1 animate-in fade-in duration-200">
+                <div className="ml-3 pl-2.5 border-l border-border space-y-0.5">
+                  <button
+                    onClick={() => {
+                      setActiveTechId("incident_labs");
+                      setActiveCategoryId(-1);
+                      setActiveQuestionId(-1);
+                      onClose();
+                    }}
+                    className={`w-full text-left py-2 px-2.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border-l-2 font-mono flex items-center justify-between ${
+                      activeTechId === "incident_labs"
+                        ? "bg-background text-foreground border-[#22c55e]"
+                        : "text-[#475569] border-transparent hover:text-foreground hover:bg-muted/20"
+                    }`}
+                  >
+                    <span>SRE Outage Quiz</span>
+                    <span className="text-[8px] font-mono font-bold text-amber-500 border border-amber-500/30 bg-amber-500/10 rounded px-1.5 py-0.5">
+                      Soon
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
