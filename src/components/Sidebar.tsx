@@ -40,10 +40,16 @@ export function Sidebar({
   });
 
   const toggleSection = (section: string) => {
-    setExpanded((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }));
+    setExpanded((prev) => {
+      const isCurrentlyOpen = prev[section];
+      const nextExpanded = {
+        prep: false,
+        runbooks: false,
+        labs: false,
+      };
+      nextExpanded[section as "prep" | "runbooks" | "labs"] = !isCurrentlyOpen;
+      return nextExpanded;
+    });
   };
   
   // Calculate technology stats
@@ -92,34 +98,11 @@ export function Sidebar({
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* Sidebar Header with Premium Brand Console Replica Logo */}
+        {/* Sidebar Header with Simple Monospace Text Logo */}
         <div className="h-16 border-b border-border flex items-center justify-between px-4 bg-card/85 select-none shrink-0">
-          <div className="flex items-center space-x-3">
-            {/* CSS Replica of Brand Console Logo */}
-            <div className="relative w-9 h-7 border border-[#00E676]/30 bg-[#0B0F14] rounded-md flex items-center justify-center shadow-[0_0_12px_rgba(0,230,118,0.15)] shrink-0">
-              {/* Close buttons */}
-              <div className="absolute top-1 left-1.5 flex space-x-0.5">
-                <span className="w-0.8 h-0.8 rounded-full bg-[#FF5F56]" />
-                <span className="w-0.8 h-0.8 rounded-full bg-[#FFBD2E]" />
-                <span className="w-0.8 h-0.8 rounded-full bg-[#00E676]" />
-              </div>
-              {/* Terminal prompt symbol */}
-              <span className="text-[10px] font-mono text-white mt-1.5 font-bold">&gt;_</span>
-              {/* Overlapping '0' badge */}
-              <div className="absolute -bottom-1 -right-1.5 bg-gradient-to-br from-[#00E676] to-[#A3FF1A] text-[#0B0F14] font-mono font-extrabold text-[9px] w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-md">
-                0
-              </div>
-            </div>
-            
-            <div className="flex flex-col">
-              <div className="flex items-center text-sm font-sans font-extrabold tracking-tight">
-                <span className="text-white">Exit</span>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00E676] to-[#A3FF1A]">Zero</span>
-              </div>
-              <span className="text-[8px] font-mono tracking-widest text-[#94a3b8] uppercase leading-none mt-0.5">
-                learn • operate
-              </span>
-            </div>
+          <div className="flex items-center space-x-1.5">
+            <span className="font-mono text-base font-extrabold tracking-tight text-white">$</span>
+            <span className="font-mono text-base font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-[#00E676] to-[#A3FF1A]">exit 0</span>
           </div>
           <button
             onClick={onClose}
