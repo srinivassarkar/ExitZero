@@ -1,4 +1,4 @@
-const CACHE_NAME = "exitzero-v2";
+const CACHE_NAME = "exitzero-v3";
 const ASSETS = [
   "./",
   "./index.html",
@@ -119,7 +119,7 @@ function checkAndNotify() {
     .then((cache) => cache.match("/last-active"))
     .then((response) => (response ? response.text() : ""))
     .then((lastActive) => {
-      const today = new Date().toISOString().split("T")[0];
+      const today = new Date().toLocaleDateString('en-CA');
       if (lastActive !== today) {
         self.registration.showNotification("ExitZero 💻", {
           body: "You haven't hit your streak today. 5 minutes is all it takes.",

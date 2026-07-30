@@ -90,8 +90,8 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
       let currentStreak = storedStreak ? parseInt(storedStreak, 10) : 0;
       let currentLongest = storedLongest ? parseInt(storedLongest, 10) : 0;
 
-      const today = new Date().toISOString().split("T")[0];
-      const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+      const today = new Date().toLocaleDateString('en-CA');
+      const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('en-CA');
 
       if (storedLastDate === today) {
         // Already active today, do nothing
@@ -200,7 +200,7 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
     });
 
     // Update study date and send to service worker
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Date().toLocaleDateString('en-CA');
     localStorage.setItem("exitzero_last_study_date", today);
     localStorage.setItem("exitzero_last_active", today);
     if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
