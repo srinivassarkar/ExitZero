@@ -223,18 +223,27 @@ export function Sidebar({
                                     }
                                     onClose();
                                   }}
-                                  className={`w-full flex items-center justify-between py-2 px-2.5 rounded-md text-[11px] font-mono transition-all duration-150 cursor-pointer border-l-2 ${
+                                  className={`w-full flex flex-col space-y-1 py-2 px-2.5 rounded-md text-[11px] font-mono transition-all duration-150 cursor-pointer border-l-2 ${
                                     isCatActive
                                       ? "bg-[#1B2430]/35 text-[#00E676] border-l-[#00E676]"
                                       : "text-muted-foreground border-transparent hover:text-foreground hover:bg-[#151B23]/20"
                                   }`}
                                 >
-                                  <span className="truncate text-left max-w-[130px]">
-                                    {cat.title}
-                                  </span>
-                                  <span className="text-[9px] font-bold ml-2 shrink-0 text-muted-foreground">
-                                    {catStats.mastered}/{catStats.total}
-                                  </span>
+                                  <div className="w-full flex items-center justify-between">
+                                    <span className="truncate text-left max-w-[130px]">
+                                      {cat.title}
+                                    </span>
+                                    <span className="text-[9px] font-bold ml-2 shrink-0 text-muted-foreground font-mono">
+                                      {catStats.mastered}/{catStats.total}
+                                    </span>
+                                  </div>
+                                  {/* Sub-section progress bar */}
+                                  <div className="w-full h-[2px] bg-border/40 rounded-full overflow-hidden shrink-0 mt-0.5">
+                                    <div
+                                      className="h-full bg-gradient-to-r from-[#00E676] to-[#A3FF1A] transition-all duration-300"
+                                      style={{ width: `${catStats.total > 0 ? (catStats.mastered / catStats.total) * 100 : 0}%` }}
+                                    />
+                                  </div>
                                 </button>
                               );
                             })}

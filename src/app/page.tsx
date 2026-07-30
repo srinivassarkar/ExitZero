@@ -258,7 +258,7 @@ export default function Home() {
     tech.categories.forEach((cat) => {
       cat.questions.forEach((q) => {
         total++;
-        if (progress[q.id] === "mastered") {
+        if (progress[`${activeTechId}-${q.id}`] === "mastered") {
           mastered++;
         }
       });
@@ -362,6 +362,12 @@ export default function Home() {
         playSoundEffect("success");
         triggerHapticFeedback("medium");
       }
+    }
+    // Snappy auto-advance UX: Flip to next question after 800ms
+    if (activeQueue.length > 1) {
+      setTimeout(() => {
+        handleNext();
+      }, 800);
     }
   };
 

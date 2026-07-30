@@ -152,5 +152,30 @@ body {
     animation: none !important;
     transform: none !important;
     opacity: 1 !important;
-  }
+    }
+}
+
+/* Custom Scrollbar Styles synced with visual identity */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0B0F14;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #26303C;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00E676;
+}
+
+/* Firefox scrollbar compatibility */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #26303C #0B0F14;
 }

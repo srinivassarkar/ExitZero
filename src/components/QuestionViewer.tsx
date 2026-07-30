@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Question } from "@/data";
+import { Question, rawData, technologies } from "@/data";
 import { StudyStatus, SRSData } from "@/hooks/useStudyState";
 import { triggerHapticFeedback } from "@/utils/audio";
 import {
@@ -154,6 +154,12 @@ export function QuestionViewer({
   };
 
   const srsPill = getSrsPill();
+  const tech = rawData[techId];
+  const techName = tech?.technology || techId;
+  const category = tech?.categories.find((c) =>
+    c.questions.some((q) => q.id === question.id)
+  );
+  const categoryName = category?.title || "Fundamentals";
 
   // Progress Percent for Timer Bar
   const timerPercent = (timeLeft / timerDuration) * 100;
@@ -189,16 +195,24 @@ export function QuestionViewer({
           </div>
         )}
 
-        <div className="p-5 md:p-6 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 flex-wrap gap-y-1.5">
-              <span className="text-xs font-mono text-muted-foreground uppercase tracking-widest font-semibold">
-                Question {question.questionNumber}
-              </span>
+        <div className="p-5 md:p-6 space-y-3.5">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 select-none">
+            <div className="flex items-center space-x-2.5 flex-wrap gap-y-2 min-w-0">
+              {/* Monospace Directory Breadcrumbs */}
+              <div className="flex items-center space-x-1.5 font-mono text-[10px] text-muted-foreground overflow-x-auto whitespace-nowrap py-0.5 no-scrollbar max-w-full">
+                <span className="opacity-80">interview prep</span>
+                <span className="text-slate-700 font-normal select-none">&gt;</span>
+                <span className="capitalize font-bold text-foreground">{techName}</span>
+                <span className="text-slate-700 font-normal select-none">&gt;</span>
+                <span className="opacity-85">{categoryName}</span>
+                <span className="text-slate-700 font-normal select-none">&gt;</span>
+                <span className="text-[#00E676] font-extrabold bg-[#00E676]/5 border border-[#00E676]/20 rounded px-1.5 py-0.2 shrink-0">Q#{question.questionNumber}</span>
+              </div>
+
               <span
-                className={`px-2 py-0.5 border rounded text-[10px] uppercase font-bold tracking-wide bg-transparent ${
+                className={`px-1.5 py-0.2 border rounded text-[9px] uppercase font-bold tracking-wider bg-transparent shrink-0 ${
                   question.difficulty === "Easy"
-                    ? "border-[#22c55e] text-[#22c55e]"
+                    ? "border-[#00E676] text-[#00E676]"
                     : question.difficulty === "Medium"
                     ? "border-amber-500 text-amber-500"
                     : "border-rose-500 text-rose-500"
@@ -209,7 +223,15 @@ export function QuestionViewer({
 
               {/* Spaced Repetition status pill */}
               <span
-                className={`px-2 py-0.5 border rounded font-mono text-[9px] font-bold bg-transparent select-none ${srsPill.color}`}
+                className={`px-1.5 py-0.2 border rounded font-mono text-[9px] font-bold bg-transparent select-none shrink-0 ${
+                  srsPill.text === "Mastered"
+                    ? "border-[#00E676] text-[#00E676]"
+                    : srsPill.text.startsWith("Review")
+                    ? "border-[#00C8FF] text-[#00C8FF]"
+                    : srsPill.text.startsWith("Due")
+                    ? "border-amber-500 text-amber-500 animate-pulse"
+                    : "border-muted-foreground/40 text-muted-foreground/80"
+                }`}
               >
                 {srsPill.text}
               </span>

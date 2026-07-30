@@ -177,7 +177,7 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
     setSrsData((prev) => {
       const current = prev[compositeId] || {
         status: "unseen" as StudyStatus,
-        interval: 1,
+        interval: 0,
         easeFactor: 2.5,
         nextReview: new Date().toISOString(),
         reviewCount: 0,
@@ -185,24 +185,30 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
 
       let interval = current.interval;
       let easeFactor = current.easeFactor;
+      const reviewCount = current.reviewCount + 1;
 
       if (score === "Again") {
         interval = 1;
         easeFactor = Math.max(1.3, easeFactor - 0.2);
-      } else if (score === "Good") {
-        interval = Math.round(interval * easeFactor);
-      } else if (score === "Easy") {
-        interval = Math.round(interval * easeFactor * 1.3);
-        easeFactor += 0.1;
+      } else {
+        if (reviewCount === 1) {
+          interval = score === "Easy" ? 4 : 1;
+        } else if (reviewCount === 2) {
+          interval = score === "Easy" ? 6 : 3;
+        } else {
+          if (score === "Good") {
+            interval = Math.round(interval * easeFactor);
+          } else if (score === "Easy") {
+            interval = Math.round(interval * easeFactor * 1.5);
+            easeFactor = Math.min(3.0, easeFactor + 0.15);
+          }
+        }
       }
 
-      const reviewCount = current.reviewCount + 1;
       const nextReview = new Date(Date.now() + interval * 86400000).toISOString();
 
       let status: StudyStatus = "studying";
-      if (interval <= 1) {
-        status = "studying";
-      } else if (interval > 7) {
+      if (interval > 7) {
         status = "mastered";
       } else {
         status = "studying";
