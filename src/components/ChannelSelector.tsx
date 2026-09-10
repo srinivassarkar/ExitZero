@@ -632,7 +632,7 @@ export function ChannelSelector({
                     </span>
                   </div>
                   <span className="text-[11px] font-mono text-[#7D8590]">
-                    {last30Days[0]?.label} — Today
+                    Past 30 Days ({last30Days[0]?.label} &rarr; Today)
                   </span>
                 </div>
 

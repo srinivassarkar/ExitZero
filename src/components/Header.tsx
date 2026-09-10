@@ -185,8 +185,8 @@ export function Header({
               {/* Heatmap Grid (30 days: 10 columns x 3 rows) */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-[9px] font-mono text-muted-foreground">
-                  <span>30-Day Activity Grid</span>
-                  <span className="text-[#00E676] font-bold">{totalReviewsMonth} total reviews</span>
+                  <span>30-Day Window ({last30Days[0]?.label} &rarr; Today)</span>
+                  <span className="text-[#00E676] font-bold">{totalReviewsMonth} reviews</span>
                 </div>
                 <div className="grid grid-cols-10 gap-1 p-2 bg-secondary/30 rounded-lg border border-border">
                   {last30Days.map((day) => {
@@ -209,7 +209,7 @@ export function Header({
                   })}
                 </div>
                 <div className="flex items-center justify-between text-[8px] font-mono text-muted-foreground pt-0.5">
-                  <span>{last30Days[0]?.label}</span>
+                  <span>30d ago ({last30Days[0]?.label})</span>
                   <div className="flex items-center space-x-1">
                     <span>Less</span>
                     <span className="w-2 h-2 rounded-xs bg-muted/60 border border-border/50" />
