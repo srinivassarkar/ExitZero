@@ -50,6 +50,9 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
   // Notification State
   const [notifPermission, setNotifPermission] = useState<"granted" | "denied" | "pending">("pending");
 
+  // Daily Study History (date -> review count for activity heatmap)
+  const [studyHistory, setStudyHistory] = useState<Record<string, number>>({});
+
   useEffect(() => {
     try {
       // 1. Bookmarks
@@ -99,6 +102,14 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
       // 12. Difficulty Exclusions
       const storedExclusions = localStorage.getItem("exitzero_difficulty_exclusions");
       if (storedExclusions) setDifficultyExclusions(JSON.parse(storedExclusions));
+
+      // 13. Study History Activity Map
+      const storedHistory = localStorage.getItem("exitzero_study_history");
+      if (storedHistory) {
+        try {
+          setStudyHistory(JSON.parse(storedHistory));
+        } catch (e) {}
+      }
 
       // 7. Session Counter
       const storedSessions = localStorage.getItem("exitzero_session_count");
@@ -247,6 +258,15 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
 
     setStreakCount(currentStreak);
     setLongestStreak(currentLongest);
+
+    // Record study history count for activity heatmap
+    try {
+      const storedHistory = localStorage.getItem("exitzero_study_history");
+      const historyObj: Record<string, number> = storedHistory ? JSON.parse(storedHistory) : {};
+      historyObj[today] = (historyObj[today] || 0) + 1;
+      localStorage.setItem("exitzero_study_history", JSON.stringify(historyObj));
+      setStudyHistory(historyObj);
+    } catch (e) {}
 
     localStorage.setItem("exitzero_last_study_date", today);
     localStorage.setItem("exitzero_last_active", today);
@@ -441,6 +461,7 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
     lastViewed,
     streakCount,
     longestStreak,
+    studyHistory,
     timerMode,
     timerDuration,
     timerAutoAdvance,

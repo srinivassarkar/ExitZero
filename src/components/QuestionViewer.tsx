@@ -64,6 +64,49 @@ export function QuestionViewer({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [animateHeart, setAnimateHeart] = useState(false);
 
+  // Mobile Touch Swipe Gesture States
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState<number>(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
+    const diffX = e.touches[0].clientX - touchStartXRef.current;
+    const diffY = e.touches[0].clientY - touchStartYRef.current;
+
+    // Only drag card horizontally if movement is predominantly horizontal
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 12) {
+      setSwipeOffset(diffX * 0.35);
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current === null) return;
+    const diffX = e.changedTouches[0].clientX - touchStartXRef.current;
+    const diffY = e.changedTouches[0].clientY - (touchStartYRef.current || 0);
+
+    if (Math.abs(diffX) > 45 && Math.abs(diffX) > Math.abs(diffY) * 1.2) {
+      if (diffX < 0) {
+        // Swiped Left -> Next Question
+        if (soundHapticsEnabled) triggerHapticFeedback("light");
+        onNext();
+      } else {
+        // Swiped Right -> Previous Question
+        if (soundHapticsEnabled) triggerHapticFeedback("light");
+        onPrev();
+      }
+    }
+
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+    setSwipeOffset(0);
+  };
+
   // Timer States
   const [timeLeft, setTimeLeft] = useState(timerDuration);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -186,9 +229,20 @@ export function QuestionViewer({
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 max-w-4xl mx-auto w-full px-4 py-4 md:py-6 md:px-8 overflow-hidden bg-background">
+    <div
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      className="flex-1 flex flex-col min-h-0 max-w-4xl mx-auto w-full px-4 py-4 md:py-6 md:px-8 overflow-hidden bg-background pb-safe select-none sm:select-auto"
+    >
       {/* 1. Question Card (Fixed at the top) */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden shadow-lg relative flex flex-col shrink-0 mb-4">
+      <div
+        style={{
+          transform: swipeOffset !== 0 ? `translateX(${swipeOffset}px)` : undefined,
+          transition: swipeOffset === 0 ? "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)" : "none",
+        }}
+        className="bg-card border border-border rounded-xl overflow-hidden shadow-lg relative flex flex-col shrink-0 mb-4 transition-transform"
+      >
         {/* Timer Progress Bar */}
         {timerMode && (
           <div className="w-full h-[3px] bg-muted absolute top-0 left-0 right-0 z-10">
@@ -521,7 +575,7 @@ export function QuestionViewer({
         </div>
 
         {/* Column 2 */}
-        <div className="flex justify-center">
+        <div className="flex flex-col items-center justify-center">
           <button
             onClick={onRandom}
             className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-3 py-2 border border-border rounded-lg text-xs sm:text-sm text-foreground hover:bg-muted font-semibold transition-all cursor-pointer"
@@ -530,6 +584,9 @@ export function QuestionViewer({
             <Shuffle className="w-3.5 h-3.5 shrink-0" />
             <span>Random</span>
           </button>
+          <span className="text-[9px] font-mono text-muted-foreground/60 hidden min-[360px]:block sm:hidden mt-1 text-center select-none">
+            Swipe ◄ / ► to flip
+          </span>
         </div>
 
         {/* Column 3 */}

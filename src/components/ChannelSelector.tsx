@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { rawData, technologies, TechnologyData, allQuestions } from "@/data";
 import { StudyStatus } from "@/hooks/useStudyState";
 import { MasteryRing } from "@/components/MasteryRing";
@@ -183,17 +183,47 @@ export function ChannelSelector({
 
   const currentTechData: TechnologyData | undefined = rawData[selectedTechId];
   const currentStats = getTechStats(selectedTechId);
+  const dragStartYRef = useRef<number | null>(null);
+
+  const handleDragStart = (e: React.TouchEvent) => {
+    dragStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleDragEnd = (e: React.TouchEvent) => {
+    if (dragStartYRef.current === null) return;
+    const diffY = e.changedTouches[0].clientY - dragStartYRef.current;
+    if (diffY > 60) {
+      onClose();
+    }
+    dragStartYRef.current = null;
+  };
 
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label="Target profile and channel selector"
-      className="fixed inset-0 z-50 bg-[#0B0F14]/90 backdrop-blur-md flex flex-col items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 bg-[#0B0F14]/90 backdrop-blur-md flex flex-col items-center justify-end sm:justify-center p-0 sm:p-4 animate-in fade-in duration-200"
     >
-      <div className="bg-[#151B23] border border-[#26303C] rounded-2xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-[#151B23] border-t sm:border border-[#26303C] rounded-t-3xl sm:rounded-2xl w-full max-w-2xl max-h-[88vh] sm:max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom-8 sm:zoom-in-95 duration-200">
+        {/* Mobile Pull Handle */}
+        <div
+          onTouchStart={handleDragStart}
+          onTouchEnd={handleDragEnd}
+          className="sm:hidden pt-3 pb-1.5 flex justify-center bg-[#0B0F14]/70 cursor-grab active:cursor-grabbing shrink-0"
+        >
+          <div className="w-12 h-1.5 bg-[#26303C] rounded-full" />
+        </div>
+
         {/* Header */}
-        <div className="px-5 py-3.5 border-b border-[#26303C] flex items-center justify-between shrink-0 bg-[#0B0F14]/60">
+        <div
+          onTouchStart={handleDragStart}
+          onTouchEnd={handleDragEnd}
+          className="px-5 py-3 sm:py-3.5 border-b border-[#26303C] flex items-center justify-between shrink-0 bg-[#0B0F14]/60"
+        >
           <div className="flex items-center space-x-2.5">
             <span className="w-2.5 h-2.5 rounded-full bg-[#00E676] animate-pulse" />
             <div>

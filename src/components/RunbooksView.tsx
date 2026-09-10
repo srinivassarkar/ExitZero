@@ -23,7 +23,9 @@ import {
   ThumbsUp,
   X,
   FileCode,
-  SlidersHorizontal
+  SlidersHorizontal,
+  CheckCircle2,
+  Circle
 } from "lucide-react";
 import { playSoundEffect, triggerHapticFeedback } from "@/utils/audio";
 
@@ -113,8 +115,63 @@ export function RunbooksView({
   const [revealAnswer, setRevealAnswer] = useState<boolean>(false);
   const [copiedTextId, setCopiedTextId] = useState<string | null>(null);
 
+  // Interactive Triage Checklist state
+  const [checkedSteps, setCheckedSteps] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`exitzero_runbook_checks_${activeTool}`);
+      if (saved) {
+        setCheckedSteps(JSON.parse(saved));
+      } else {
+        setCheckedSteps({});
+      }
+    } catch (e) {}
+  }, [activeTool]);
+
+  const toggleStepCheck = (id: number) => {
+    const key = `${activeTool}-${id}`;
+    const nextVal = !checkedSteps[key];
+    const updated = { ...checkedSteps, [key]: nextVal };
+    setCheckedSteps(updated);
+    try {
+      localStorage.setItem(`exitzero_runbook_checks_${activeTool}`, JSON.stringify(updated));
+    } catch (e) {}
+
+    if (soundHapticsEnabled) {
+      if (nextVal) {
+        playSoundEffect("success");
+        triggerHapticFeedback("medium");
+      } else {
+        playSoundEffect("click");
+        triggerHapticFeedback("light");
+      }
+    }
+  };
+
+  const resetChecks = () => {
+    setCheckedSteps({});
+    try {
+      localStorage.removeItem(`exitzero_runbook_checks_${activeTool}`);
+    } catch (e) {}
+    if (soundHapticsEnabled) {
+      playSoundEffect("click");
+      triggerHapticFeedback("light");
+    }
+  };
+
   // Active runbook
   const activeRunbook = runbooks[activeTool];
+
+  const verifiedCount = useMemo(() => {
+    if (!activeRunbook) return 0;
+    return activeRunbook.commands.filter((c) => checkedSteps[`${activeTool}-${c.id}`]).length;
+  }, [activeRunbook, activeTool, checkedSteps]);
+
+  const progressPct = useMemo(() => {
+    if (!activeRunbook || activeRunbook.commands.length === 0) return 0;
+    return Math.round((verifiedCount / activeRunbook.commands.length) * 100);
+  }, [activeRunbook, verifiedCount]);
 
   // Auto-select the first command when switching tools
   useEffect(() => {
@@ -334,6 +391,36 @@ export function RunbooksView({
                 </select>
               </div>
             </div>
+
+            {/* Checklist Progress Bar */}
+            <div className="pt-2 border-t border-border flex items-center justify-between gap-2">
+              <div className="flex-1 space-y-1">
+                <div className="flex items-center justify-between text-[9px] font-mono text-muted-foreground">
+                  <span className="flex items-center space-x-1">
+                    <CheckCircle2 className="w-3 h-3 text-[#00E676]" />
+                    <span>Triage Progress</span>
+                  </span>
+                  <span className="font-bold text-foreground">
+                    {verifiedCount}/{activeRunbook?.commands.length || 0} ({progressPct}%)
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden border border-border">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#00E676] to-[#A3FF1A] transition-all duration-300"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+              </div>
+              {verifiedCount > 0 && (
+                <button
+                  onClick={resetChecks}
+                  className="text-[9px] font-mono text-muted-foreground hover:text-rose-400 transition-colors px-1.5 py-0.5 rounded border border-border shrink-0 cursor-pointer"
+                  title="Reset all verified steps for this runbook"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Commands List Scroll */}
@@ -341,20 +428,44 @@ export function RunbooksView({
             {filteredCommands.length > 0 ? (
               filteredCommands.map((cmd) => {
                 const isSelected = selectedCommandId === cmd.id;
+                const isChecked = !!checkedSteps[`${activeTool}-${cmd.id}`];
+
                 return (
-                  <button
+                  <div
                     key={cmd.id}
-                    onClick={() => handleSelectCommand(cmd.id)}
-                    className={`w-full text-left p-3 rounded-xl border transition-all duration-200 cursor-pointer flex flex-col space-y-1.5 ${
+                    className={`w-full text-left p-3 rounded-xl border transition-all duration-200 flex flex-col space-y-1.5 ${
                       isSelected
                         ? "bg-card border-[#2563eb] shadow-sm relative before:absolute before:left-0 before:top-3 before:bottom-3 before:w-1 before:bg-[#2563eb] before:rounded-r"
+                        : isChecked
+                        ? "bg-[#00E676]/5 border-[#00E676]/30 hover:border-[#00E676]/50"
                         : "bg-transparent border-transparent hover:bg-card/40 hover:border-border"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <h4 className="text-xs font-bold text-foreground leading-snug line-clamp-1 font-mono">
-                        {cmd.title}
-                      </h4>
+                      <div className="flex items-center space-x-2 min-w-0 flex-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleStepCheck(cmd.id);
+                          }}
+                          className="text-muted-foreground hover:text-[#00E676] transition-colors shrink-0 p-0.5 cursor-pointer"
+                          title={isChecked ? "Mark unverified" : "Mark verified"}
+                        >
+                          {isChecked ? (
+                            <CheckCircle2 className="w-4 h-4 text-[#00E676] fill-[#00E676]/20" />
+                          ) : (
+                            <Circle className="w-4 h-4 text-muted-foreground/60 hover:text-[#00E676]" />
+                          )}
+                        </button>
+                        <h4
+                          onClick={() => handleSelectCommand(cmd.id)}
+                          className={`text-xs font-bold leading-snug line-clamp-1 font-mono cursor-pointer flex-1 ${
+                            isChecked ? "line-through text-muted-foreground" : "text-foreground"
+                          }`}
+                        >
+                          {cmd.title}
+                        </h4>
+                      </div>
                       <span
                         className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.2 border rounded shrink-0 ${
                           cmd.difficulty === "Easy"
@@ -368,15 +479,21 @@ export function RunbooksView({
                       </span>
                     </div>
 
-                    <div className="flex items-center space-x-1.5 bg-slate-950/60 border border-slate-900 rounded-md py-1 px-2 font-mono text-[10px] text-slate-300 select-all leading-none overflow-hidden text-ellipsis whitespace-nowrap">
+                    <div
+                      onClick={() => handleSelectCommand(cmd.id)}
+                      className="flex items-center space-x-1.5 bg-slate-950/60 border border-slate-900 rounded-md py-1 px-2 font-mono text-[10px] text-slate-300 select-all leading-none overflow-hidden text-ellipsis whitespace-nowrap cursor-pointer"
+                    >
                       <span className="text-slate-600 select-none">$</span>
                       <span className="truncate">{cmd.command}</span>
                     </div>
 
-                    <p className="text-[10px] text-muted-foreground line-clamp-1">
+                    <p
+                      onClick={() => handleSelectCommand(cmd.id)}
+                      className="text-[10px] text-muted-foreground line-clamp-1 cursor-pointer"
+                    >
                       {cmd.summary}
                     </p>
-                  </button>
+                  </div>
                 );
               })
             ) : (
@@ -416,13 +533,39 @@ export function RunbooksView({
                   </div>
                 </div>
 
-                {/* Score / Metrics indicator */}
-                <div className="flex items-center space-x-1.5 font-mono text-[9px] shrink-0 border border-border rounded-lg bg-card/60 px-2.5 py-1">
-                  <span className="text-muted-foreground">Importance:</span>
-                  <span className="font-bold text-[#2563eb]">{activeCommand.importance}/10</span>
-                  <span className="text-muted-foreground font-light px-0.5">|</span>
-                  <span className="text-muted-foreground">Frequency:</span>
-                  <span className="font-bold text-foreground">{activeCommand.frequency}</span>
+                {/* Actions & Metrics */}
+                <div className="flex items-center space-x-2 shrink-0">
+                  {/* Step Verified Toggle Button */}
+                  <button
+                    onClick={() => toggleStepCheck(activeCommand.id)}
+                    className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold border transition-all cursor-pointer ${
+                      checkedSteps[`${activeTool}-${activeCommand.id}`]
+                        ? "bg-[#00E676]/15 border-[#00E676] text-[#00E676] shadow-[0_0_8px_rgba(0,230,118,0.2)]"
+                        : "bg-card border-border text-muted-foreground hover:text-foreground hover:border-[#00E676]/50"
+                    }`}
+                    title="Toggle step verification"
+                  >
+                    {checkedSteps[`${activeTool}-${activeCommand.id}`] ? (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#00E676]" />
+                        <span>Verified</span>
+                      </>
+                    ) : (
+                      <>
+                        <Circle className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span>Verify Step</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Score / Metrics indicator */}
+                  <div className="hidden sm:flex items-center space-x-1.5 font-mono text-[9px] shrink-0 border border-border rounded-lg bg-card/60 px-2.5 py-1">
+                    <span className="text-muted-foreground">Importance:</span>
+                    <span className="font-bold text-[#2563eb]">{activeCommand.importance}/10</span>
+                    <span className="text-muted-foreground font-light px-0.5">|</span>
+                    <span className="text-muted-foreground">Frequency:</span>
+                    <span className="font-bold text-foreground">{activeCommand.frequency}</span>
+                  </div>
                 </div>
               </div>
 
