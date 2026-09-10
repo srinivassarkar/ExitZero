@@ -108,6 +108,20 @@ export function ChannelSelector({
   const [selectedTechId, setSelectedTechId] = useState<string>(
     technologies.some((t) => t.id === activeTechId) ? activeTechId : "docker"
   );
+  const dragStartYRef = useRef<number | null>(null);
+
+  const handleDragStart = (e: React.TouchEvent) => {
+    dragStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleDragEnd = (e: React.TouchEvent) => {
+    if (dragStartYRef.current === null) return;
+    const diffY = e.changedTouches[0].clientY - dragStartYRef.current;
+    if (diffY > 60) {
+      onClose();
+    }
+    dragStartYRef.current = null;
+  };
 
   // Sync state when modal opens
   useEffect(() => {
@@ -183,20 +197,6 @@ export function ChannelSelector({
 
   const currentTechData: TechnologyData | undefined = rawData[selectedTechId];
   const currentStats = getTechStats(selectedTechId);
-  const dragStartYRef = useRef<number | null>(null);
-
-  const handleDragStart = (e: React.TouchEvent) => {
-    dragStartYRef.current = e.touches[0].clientY;
-  };
-
-  const handleDragEnd = (e: React.TouchEvent) => {
-    if (dragStartYRef.current === null) return;
-    const diffY = e.changedTouches[0].clientY - dragStartYRef.current;
-    if (diffY > 60) {
-      onClose();
-    }
-    dragStartYRef.current = null;
-  };
 
   return (
     <div
