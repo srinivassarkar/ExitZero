@@ -52,7 +52,6 @@ export default function Home() {
     lastViewed,
     streakCount,
     longestStreak,
-    studyHistory,
     timerMode,
     timerDuration,
     timerAutoAdvance,
@@ -580,7 +579,6 @@ export default function Home() {
           }
           streakCount={streakCount}
           longestStreak={longestStreak}
-          studyHistory={studyHistory}
           timerMode={timerMode}
           onToggleTimerMode={toggleTimerMode}
           timerDuration={timerDuration}
@@ -705,9 +703,6 @@ export default function Home() {
         onSelectChannel={handleSelectChannel}
         progress={progress}
         bookmarks={bookmarks}
-        streakCount={streakCount}
-        longestStreak={longestStreak}
-        studyHistory={studyHistory}
       />
     </div>
   );

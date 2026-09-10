@@ -11,7 +11,6 @@ interface HeaderProps {
   activeCategoryName: string;
   streakCount: number;
   longestStreak: number;
-  studyHistory?: Record<string, number>;
   timerMode: boolean;
   onToggleTimerMode: () => void;
   timerDuration: number;
@@ -39,7 +38,6 @@ export function Header({
   activeCategoryName,
   streakCount,
   longestStreak,
-  studyHistory,
   timerMode,
   onToggleTimerMode,
   timerDuration,
@@ -60,27 +58,7 @@ export function Header({
 }: HeaderProps) {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isStreakOpen, setIsStreakOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
-  const streakRef = useRef<HTMLDivElement>(null);
-
-  // Compute 30-day activity heatmap data
-  const last30Days = useMemo(() => {
-    const days: { dateStr: string; label: string; count: number }[] = [];
-    const now = new Date();
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date(now.getTime() - i * 86400000);
-      const dateStr = d.toLocaleDateString("en-CA");
-      const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      const count = (studyHistory && studyHistory[dateStr]) || 0;
-      days.push({ dateStr, label, count });
-    }
-    return days;
-  }, [studyHistory]);
-
-  const totalReviewsMonth = useMemo(() => {
-    return Object.values(studyHistory || {}).reduce((a, b) => a + b, 0);
-  }, [studyHistory]);
 
   // Initialize theme from localStorage/system preference
   useEffect(() => {
@@ -95,14 +73,11 @@ export function Header({
     }
   }, []);
 
-  // Handle clicking outside popovers to close them
+  // Handle clicking outside settings popover
   useEffect(() => {
     const handleClickOutside = (event: Event) => {
       if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
         setIsSettingsOpen(false);
-      }
-      if (streakRef.current && !streakRef.current.contains(event.target as Node)) {
-        setIsStreakOpen(false);
       }
     };
     document.addEventListener("pointerdown", handleClickOutside);
@@ -151,78 +126,18 @@ export function Header({
 
       {/* Header Actions */}
       <div className="flex items-center space-x-1.5 sm:space-x-2 md:space-x-3 shrink-0">
-        {/* Streak Counter & 30-Day Activity Heatmap */}
-        <div className="relative flex items-center shrink-0" ref={streakRef}>
-          <button
-            onClick={() => setIsStreakOpen(!isStreakOpen)}
-            className="flex items-center space-x-1 px-1.5 sm:px-2 py-1 bg-muted hover:bg-muted/80 rounded-lg border border-border select-none cursor-pointer transition-all shrink-0"
-            title="Click to view 30-Day Study Activity Heatmap"
-          >
-            <span className={`text-sm sm:text-base ${streakCount >= 3 ? "animate-streak-pulse origin-bottom" : ""}`}>
-              🔥
-            </span>
-            <span className="font-mono text-xs font-bold text-foreground">
-              {streakCount}
-              <span className="hidden sm:inline"> day streak</span>
-            </span>
-          </button>
-
-          {/* Activity Heatmap Popover */}
-          {isStreakOpen && (
-            <div className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-2rem)] bg-card border border-border rounded-xl p-3.5 shadow-2xl space-y-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-              <div className="flex items-center justify-between border-b border-border pb-2">
-                <div className="flex items-center space-x-1.5">
-                  <span className="text-sm">🔥</span>
-                  <span className="text-xs font-bold font-mono text-foreground">
-                    Study Activity
-                  </span>
-                </div>
-                <span className="text-[10px] font-mono text-[#00E676] font-bold">
-                  {streakCount}d streak &bull; {longestStreak}d best
-                </span>
-              </div>
-
-              {/* Heatmap Grid (30 days: 10 columns x 3 rows) */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-[9px] font-mono text-muted-foreground">
-                  <span>30-Day Window ({last30Days[0]?.label} &rarr; Today)</span>
-                  <span className="text-[#00E676] font-bold">{totalReviewsMonth} reviews</span>
-                </div>
-                <div className="grid grid-cols-10 gap-1 p-2 bg-secondary/30 rounded-lg border border-border">
-                  {last30Days.map((day) => {
-                    const levelClass =
-                      day.count === 0
-                        ? "bg-muted/60 border-border/50"
-                        : day.count <= 2
-                        ? "bg-[#00E676]/30 border-[#00E676]/40"
-                        : day.count <= 5
-                        ? "bg-[#00E676]/70 border-[#00E676]/80"
-                        : "bg-[#00E676] border-[#A3FF1A] shadow-[0_0_4px_rgba(0,230,118,0.4)]";
-
-                    return (
-                      <div
-                        key={day.dateStr}
-                        className={`w-full aspect-square rounded-xs border transition-all ${levelClass} hover:scale-125 cursor-default`}
-                        title={`${day.label}: ${day.count} questions reviewed`}
-                      />
-                    );
-                  })}
-                </div>
-                <div className="flex items-center justify-between text-[8px] font-mono text-muted-foreground pt-0.5">
-                  <span>30d ago ({last30Days[0]?.label})</span>
-                  <div className="flex items-center space-x-1">
-                    <span>Less</span>
-                    <span className="w-2 h-2 rounded-xs bg-muted/60 border border-border/50" />
-                    <span className="w-2 h-2 rounded-xs bg-[#00E676]/30 border border-[#00E676]/40" />
-                    <span className="w-2 h-2 rounded-xs bg-[#00E676]/70 border border-[#00E676]/80" />
-                    <span className="w-2 h-2 rounded-xs bg-[#00E676] border border-[#A3FF1A]" />
-                    <span>More</span>
-                  </div>
-                  <span>Today</span>
-                </div>
-              </div>
-            </div>
-          )}
+        {/* Streak Counter Badge */}
+        <div
+          className="flex items-center space-x-1 px-2 py-1 bg-muted rounded-lg border border-border select-none shrink-0"
+          title={`${streakCount} day study streak (Best: ${longestStreak} days)`}
+        >
+          <span className={`text-sm sm:text-base ${streakCount >= 3 ? "animate-streak-pulse origin-bottom" : ""}`}>
+            🔥
+          </span>
+          <span className="font-mono text-xs font-bold text-foreground">
+            {streakCount}
+            <span className="hidden sm:inline"> day streak</span>
+          </span>
         </div>
 
         {/* Search */}

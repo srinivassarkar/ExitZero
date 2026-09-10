@@ -82,9 +82,6 @@ interface ChannelSelectorProps {
   ) => void;
   progress: Record<string, StudyStatus>;
   bookmarks: string[];
-  streakCount?: number;
-  longestStreak?: number;
-  studyHistory?: Record<string, number>;
 }
 
 export function ChannelSelector({
@@ -96,12 +93,9 @@ export function ChannelSelector({
   onSelectChannel,
   progress,
   bookmarks,
-  streakCount = 0,
-  longestStreak = 0,
-  studyHistory = {},
 }: ChannelSelectorProps) {
-  // Navigation tabs inside modal: "interview" | "runbooks" | "all" | "saved" | "activity"
-  const [activeTab, setActiveTab] = useState<"interview" | "runbooks" | "all" | "saved" | "activity">(
+  // Navigation tabs inside modal: "interview" | "runbooks" | "all" | "saved"
+  const [activeTab, setActiveTab] = useState<"interview" | "runbooks" | "all" | "saved">(
     activeTechId === "runbooks"
       ? "runbooks"
       : activeTechId === "saved"
@@ -143,24 +137,6 @@ export function ChannelSelector({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
-
-  // Compute 30-day activity heatmap data
-  const last30Days = useMemo(() => {
-    const days: { dateStr: string; label: string; count: number }[] = [];
-    const now = new Date();
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date(now.getTime() - i * 86400000);
-      const dateStr = d.toLocaleDateString("en-CA");
-      const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      const count = (studyHistory && studyHistory[dateStr]) || 0;
-      days.push({ dateStr, label, count });
-    }
-    return days;
-  }, [studyHistory]);
-
-  const totalReviewsMonth = useMemo(() => {
-    return Object.values(studyHistory || {}).reduce((a, b) => a + b, 0);
-  }, [studyHistory]);
 
   if (!isOpen) return null;
 
@@ -277,18 +253,6 @@ export function ChannelSelector({
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>All Questions</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("activity")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center space-x-1.5 shrink-0 ${
-              activeTab === "activity"
-                ? "bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_8px_rgba(245,158,11,0.15)]"
-                : "text-[#7D8590] hover:text-[#E6EDF3] hover:bg-[#26303C]/30 border border-transparent"
-            }`}
-          >
-            <Flame className="w-3.5 h-3.5 text-amber-500" />
-            <span>Activity ({streakCount}d)</span>
           </button>
 
           {bookmarks.length > 0 && (
@@ -580,106 +544,6 @@ export function ChannelSelector({
               >
                 <Flame className="w-4 h-4" />
                 <span>Study {bookmarks.length} Bookmarked Questions</span>
-              </button>
-            </div>
-          )}
-
-          {/* TAB 5: ACTIVITY & STREAK HEATMAP */}
-          {activeTab === "activity" && (
-            <div className="space-y-4">
-              {/* Summary Stats Grid */}
-              <div className="grid grid-cols-3 gap-2.5">
-                <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 flex flex-col items-center text-center">
-                  <div className="flex items-center space-x-1 text-amber-400 mb-1">
-                    <Flame className="w-4 h-4 fill-amber-400" />
-                    <span className="text-[10px] font-mono font-bold uppercase">Current Streak</span>
-                  </div>
-                  <span className="text-xl sm:text-2xl font-black font-mono text-[#E6EDF3]">
-                    {streakCount} <span className="text-xs font-normal text-[#7D8590]">days</span>
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-xl border border-[#00E676]/30 bg-[#00E676]/10 flex flex-col items-center text-center">
-                  <div className="flex items-center space-x-1 text-[#00E676] mb-1">
-                    <Sparkles className="w-4 h-4" />
-                    <span className="text-[10px] font-mono font-bold uppercase">Best Streak</span>
-                  </div>
-                  <span className="text-xl sm:text-2xl font-black font-mono text-[#E6EDF3]">
-                    {longestStreak} <span className="text-xs font-normal text-[#7D8590]">days</span>
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-xl border border-[#00C8FF]/30 bg-[#00C8FF]/10 flex flex-col items-center text-center">
-                  <div className="flex items-center space-x-1 text-[#00C8FF] mb-1">
-                    <BookOpen className="w-4 h-4" />
-                    <span className="text-[10px] font-mono font-bold uppercase">Month Reviews</span>
-                  </div>
-                  <span className="text-xl sm:text-2xl font-black font-mono text-[#E6EDF3]">
-                    {totalReviewsMonth} <span className="text-xs font-normal text-[#7D8590]">cards</span>
-                  </span>
-                </div>
-              </div>
-
-              {/* 30-Day Activity Contribution Grid */}
-              <div className="p-4 rounded-xl border border-[#26303C] bg-[#0B0F14]/50 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs font-mono font-bold text-[#E6EDF3]">
-                      30-Day Practice History
-                    </span>
-                    <span className="text-[10px] font-mono text-[#00E676] bg-[#00E676]/10 border border-[#00E676]/30 px-1.5 py-0.2 rounded">
-                      GitHub Contribution Style
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-mono text-[#7D8590]">
-                    Past 30 Days ({last30Days[0]?.label} &rarr; Today)
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-10 gap-1.5 p-3 bg-[#151B23] rounded-lg border border-[#26303C]">
-                  {last30Days.map((day) => {
-                    const levelClass =
-                      day.count === 0
-                        ? "bg-[#0B0F14] border-[#26303C]"
-                        : day.count <= 2
-                        ? "bg-[#00E676]/30 border-[#00E676]/40"
-                        : day.count <= 5
-                        ? "bg-[#00E676]/70 border-[#00E676]/80"
-                        : "bg-[#00E676] border-[#A3FF1A] shadow-[0_0_6px_rgba(0,230,118,0.5)]";
-
-                    return (
-                      <div
-                        key={day.dateStr}
-                        className={`w-full aspect-square rounded-sm border transition-all ${levelClass} hover:scale-125 cursor-pointer relative group`}
-                        title={`${day.label}: ${day.count} questions studied`}
-                      />
-                    );
-                  })}
-                </div>
-
-                <div className="flex items-center justify-between text-[10px] font-mono text-[#7D8590] pt-1">
-                  <span>Daily Habit Tracker</span>
-                  <div className="flex items-center space-x-1.5">
-                    <span>Less</span>
-                    <span className="w-2.5 h-2.5 rounded-xs bg-[#0B0F14] border border-[#26303C]" />
-                    <span className="w-2.5 h-2.5 rounded-xs bg-[#00E676]/30 border border-[#00E676]/40" />
-                    <span className="w-2.5 h-2.5 rounded-xs bg-[#00E676]/70 border border-[#00E676]/80" />
-                    <span className="w-2.5 h-2.5 rounded-xs bg-[#00E676] border border-[#A3FF1A]" />
-                    <span>More</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick Actions */}
-              <button
-                onClick={() => {
-                  onSelectChannel("all");
-                  onClose();
-                }}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-[#00E676] to-[#00C8FF] text-[#0B0F14] font-mono font-bold text-xs flex items-center justify-center space-x-2 transition-all hover:opacity-90 shadow-lg cursor-pointer"
-              >
-                <Flame className="w-4 h-4 fill-current" />
-                <span>Practice Questions & Extend Streak</span>
               </button>
             </div>
           )}
