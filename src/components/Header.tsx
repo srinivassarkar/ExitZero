@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { Search, Sun, Moon, Menu, Clock, Settings } from "lucide-react";
+import { Search, Sun, Moon, Menu, Clock, Settings, ChevronDown } from "lucide-react";
 
 interface HeaderProps {
   onMenuToggle: () => void;
   onSearchOpen: () => void;
+  onOpenChannelSelector?: () => void;
   activeTechName: string;
   activeCategoryName: string;
   streakCount: number;
@@ -29,6 +30,7 @@ interface HeaderProps {
 export function Header({
   onMenuToggle,
   onSearchOpen,
+  onOpenChannelSelector,
   activeTechName,
   activeCategoryName,
   streakCount,
@@ -90,22 +92,41 @@ export function Header({
 
   return (
     <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 z-30 relative shrink-0">
-      {/* Subject / Category Info */}
-      <div className="flex items-center space-x-3 min-w-0">
+      {/* Subject / Category Info & Channel Selector */}
+      <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
         <button
           onClick={onMenuToggle}
           className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted md:hidden cursor-pointer"
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div className="flex flex-col min-w-0">
+
+        <div
+          onClick={onOpenChannelSelector}
+          className={`flex flex-col min-w-0 ${onOpenChannelSelector ? "cursor-pointer group" : ""}`}
+          title={onOpenChannelSelector ? "Click to switch channel [$ target --profile]" : undefined}
+        >
           <span className="text-[10px] uppercase font-extrabold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#00E676] to-[#A3FF1A] select-none font-mono">
             {activeTechName}
           </span>
-          <span className="text-xs sm:text-sm font-semibold text-foreground truncate select-none max-w-[100px] min-[400px]:max-w-[140px] min-[500px]:max-w-[200px] sm:max-w-xs md:max-w-md block">
+          <span className="text-xs sm:text-sm font-semibold text-foreground truncate select-none max-w-[90px] min-[380px]:max-w-[120px] min-[500px]:max-w-[180px] sm:max-w-xs md:max-w-md block group-hover:text-[#00E676] transition-colors">
             {activeCategoryName}
           </span>
         </div>
+
+        {/* Target Profile / Channel Selector Trigger */}
+        {onOpenChannelSelector && (
+          <button
+            onClick={onOpenChannelSelector}
+            className="flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-2.5 py-1 rounded-lg border border-[#26303C] bg-[#0B0F14]/70 hover:border-[#00E676]/40 hover:bg-[#151B23] active:scale-95 transition-all cursor-pointer group text-xs font-mono shrink-0"
+            title="Select Study Feed Channel [$ target --profile] [t]"
+          >
+            <span className="w-2 h-2 rounded-full bg-[#00E676] animate-pulse shrink-0" />
+            <span className="text-muted-foreground hidden sm:inline">$ target</span>
+            <span className="text-[#00E676] font-bold">--profile</span>
+            <ChevronDown className="w-3 h-3 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+          </button>
+        )}
       </div>
 
       {/* Header Actions */}

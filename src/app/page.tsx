@@ -11,6 +11,7 @@ import { IncidentLabsView } from "@/components/IncidentLabsView";
 import { CelebrationOverlay } from "@/components/CelebrationOverlay";
 import { InstallBanner } from "@/components/InstallBanner";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
+import { ChannelSelector, runbooksList } from "@/components/ChannelSelector";
 import { rawData, technologies, Question, Category, allQuestions } from "@/data";
 import { useStudyState, StudyStatus } from "@/hooks/useStudyState";
 import { playSoundEffect, triggerHapticFeedback } from "@/utils/audio";
@@ -90,8 +91,28 @@ export default function Home() {
   // Modals state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isChannelSelectorOpen, setIsChannelSelectorOpen] = useState(false);
   const [celebrationSubject, setCelebrationSubject] = useState<string | null>(null);
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
+
+  // Keyboard shortcut listener for Channel Selector [$ target --profile]
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA" ||
+        document.activeElement?.tagName === "SELECT"
+      ) {
+        return;
+      }
+      if (e.key === "t" || e.key === "T") {
+        e.preventDefault();
+        setIsChannelSelectorOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // PWA install event
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -158,6 +179,9 @@ export default function Home() {
       // In Saved List View, don't build active study queue yet
       setActiveQueue([]);
       return;
+    } else if (activeTechId === "all") {
+      // All questions across all DevOps domains
+      baseQuestions = allQuestions;
     } else {
       // Normal technology flow
       const tech = rawData[activeTechId];
@@ -379,6 +403,61 @@ export default function Home() {
     updateLastViewed({ techId, categoryId, questionId });
   };
 
+  const handleSelectChannel = (
+    type: "tech" | "all" | "saved" | "runbooks" | "incident_labs",
+    techId?: string,
+    categoryId: number = -1,
+    runbookKey?: string
+  ) => {
+    setIsChannelSelectorOpen(false);
+
+    if (type === "all") {
+      setIsStudyingSaved(false);
+      setActiveTechId("all");
+      setActiveCategoryId(-1);
+      const firstQ = allQuestions[0];
+      if (firstQ) setActiveQuestionId(firstQ.id);
+      addToast("Switched channel to ALL DevOps questions", 2);
+    } else if (type === "saved") {
+      setIsStudyingSaved(true);
+      setActiveTechId("saved");
+      addToast("Switched channel to Saved Bookmarks", 2);
+    } else if (type === "runbooks") {
+      setIsStudyingSaved(false);
+      setActiveTechId("runbooks");
+      setActiveCategoryId(-1);
+      setActiveQuestionId(-1);
+      if (runbookKey) {
+        setActiveRunbookTool(runbookKey);
+        const rb = runbooksList.find((r) => r.key === runbookKey);
+        if (rb) addToast(`Opened Runbook: ${rb.name}`, 2);
+      }
+    } else if (type === "incident_labs") {
+      setIsStudyingSaved(false);
+      setActiveTechId("incident_labs");
+      setActiveCategoryId(-1);
+      setActiveQuestionId(-1);
+      addToast("Opened Incident Labs sandbox", 2);
+    } else if (type === "tech" && techId) {
+      setIsStudyingSaved(false);
+      setActiveTechId(techId);
+      setActiveCategoryId(categoryId);
+      const tech = rawData[techId];
+      if (tech) {
+        if (categoryId === -1) {
+          const firstQ = tech.categories[0]?.questions[0];
+          if (firstQ) setActiveQuestionId(firstQ.id);
+          addToast(`Switched channel to ${tech.technology} (All Modules)`, 2);
+        } else {
+          const cat = tech.categories.find((c) => c.id === categoryId);
+          const firstQ = cat?.questions[0];
+          if (firstQ) setActiveQuestionId(firstQ.id);
+          if (cat) addToast(`Switched channel to ${cat.title}`, 2);
+        }
+      }
+    }
+  };
+
   const handlePWAInstall = async () => {
     if (deferredPrompt) {
       deferredPrompt.prompt();
@@ -420,7 +499,7 @@ export default function Home() {
   const activeQuestion = activeQueue[activeQueueIndex];
 
   const currentQuestionTechId = activeQuestion
-    ? (isStudyingSaved ? (activeQuestion as any).technologyId : activeTechId)
+    ? (isStudyingSaved || activeTechId === "all" ? (activeQuestion as any).technologyId : activeTechId)
     : "";
   const currentQuestionCompositeId = activeQuestion
     ? `${currentQuestionTechId}-${activeQuestion.id}`
@@ -464,11 +543,14 @@ export default function Home() {
         <Header
           onMenuToggle={() => setIsSidebarOpen(!isSidebarOpen)}
           onSearchOpen={() => setIsSearchOpen(true)}
+          onOpenChannelSelector={() => setIsChannelSelectorOpen(true)}
           activeTechName={
             isStudyingSaved
               ? "Study Session"
               : activeTechId === "saved"
               ? "Bookmarks"
+              : activeTechId === "all"
+              ? "All DevOps"
               : activeTechId === "runbooks"
               ? "Runbooks"
               : activeTechId === "incident_labs"
@@ -480,10 +562,14 @@ export default function Home() {
               ? "Saved Bookmarks"
               : activeTechId === "saved"
               ? "Saved Questions List"
+              : activeTechId === "all"
+              ? "All Questions Queue"
               : activeTechId === "runbooks"
-              ? "Operational Procedures"
+              ? runbooksList.find((r) => r.key === activeRunbookTool)?.name || "Operational Procedures"
               : activeTechId === "incident_labs"
               ? "Troubleshooting Sandbox"
+              : activeCategoryId === -1
+              ? "All Modules"
               : activeCategory?.title || ""
           }
           streakCount={streakCount}
@@ -594,6 +680,18 @@ export default function Home() {
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
         onSelectQuestion={handleSelectQuestion}
+      />
+
+      {/* Target Profile / Channel Selector Modal */}
+      <ChannelSelector
+        isOpen={isChannelSelectorOpen}
+        onClose={() => setIsChannelSelectorOpen(false)}
+        activeTechId={activeTechId}
+        activeCategoryId={activeCategoryId}
+        activeRunbookTool={activeRunbookTool}
+        onSelectChannel={handleSelectChannel}
+        progress={progress}
+        bookmarks={bookmarks}
       />
     </div>
   );
