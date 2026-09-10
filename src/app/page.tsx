@@ -237,7 +237,7 @@ export default function Home() {
 
     const srsSorted = [
       ...overdue.map((item) => item.q),
-      ...unseen.slice(0, 10),
+      ...unseen,
       ...future.map((item) => item.q),
     ];
 
@@ -629,6 +629,8 @@ export default function Home() {
             addToast={addToast}
             isScopedSession={isStudyingSaved}
             techId={currentQuestionTechId}
+            currentIndex={activeQueueIndex}
+            totalQuestions={activeQueue.length}
           />
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground space-y-2">

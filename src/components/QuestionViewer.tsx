@@ -36,6 +36,8 @@ interface QuestionViewerProps {
   addToast: (msg: string, duration?: number) => void;
   isScopedSession?: boolean;
   techId: string;
+  currentIndex?: number;
+  totalQuestions?: number;
 }
 
 export function QuestionViewer({
@@ -55,6 +57,8 @@ export function QuestionViewer({
   addToast,
   isScopedSession = false,
   techId,
+  currentIndex,
+  totalQuestions,
 }: QuestionViewerProps) {
   const [showAnswer, setShowAnswer] = useState(autoRevealEnabled);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -235,6 +239,16 @@ export function QuestionViewer({
               >
                 {srsPill.text}
               </span>
+
+              {/* Queue Position Pill */}
+              {currentIndex !== undefined && totalQuestions !== undefined && totalQuestions > 0 && (
+                <span
+                  className="px-1.5 py-0.2 border border-border/70 rounded font-mono text-[9px] font-bold text-muted-foreground bg-muted/30 select-none shrink-0"
+                  title={`Question ${currentIndex + 1} of ${totalQuestions} in current queue`}
+                >
+                  {currentIndex + 1} / {totalQuestions}
+                </span>
+              )}
             </div>
 
             <div className="flex items-center space-x-3 shrink-0">
