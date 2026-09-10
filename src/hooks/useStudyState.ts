@@ -225,7 +225,11 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
       return updated;
     });
 
-    // Record and advance study streak upon actual card review
+    recordStudyActivity();
+  };
+
+  // Record and advance study streak upon actual card review / study action
+  const recordStudyActivity = () => {
     const today = new Date().toLocaleDateString('en-CA');
     const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('en-CA');
     const storedLastDate = localStorage.getItem("exitzero_last_study_date");
@@ -485,5 +489,6 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
     updateNotificationTime,
     sendTestNotification,
     toggleDifficultyExclusion,
+    recordStudyActivity,
   };
 }

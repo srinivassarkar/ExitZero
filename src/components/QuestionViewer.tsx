@@ -38,6 +38,7 @@ interface QuestionViewerProps {
   techId: string;
   currentIndex?: number;
   totalQuestions?: number;
+  onStudyActivity?: () => void;
 }
 
 export function QuestionViewer({
@@ -59,6 +60,7 @@ export function QuestionViewer({
   techId,
   currentIndex,
   totalQuestions,
+  onStudyActivity,
 }: QuestionViewerProps) {
   const [showAnswer, setShowAnswer] = useState(autoRevealEnabled);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -91,6 +93,7 @@ export function QuestionViewer({
     const diffY = e.changedTouches[0].clientY - (touchStartYRef.current || 0);
 
     if (Math.abs(diffX) > 45 && Math.abs(diffX) > Math.abs(diffY) * 1.2) {
+      onStudyActivity?.();
       if (diffX < 0) {
         // Swiped Left -> Next Question
         if (soundHapticsEnabled) triggerHapticFeedback("light");
@@ -343,7 +346,12 @@ export function QuestionViewer({
       <div className="flex-1 overflow-y-auto space-y-4 pr-1 min-h-0 bg-background">
         {/* Reveal Answer Button */}
         <button
-          onClick={() => setShowAnswer(!showAnswer)}
+          onClick={() => {
+            if (!showAnswer) {
+              onStudyActivity?.();
+            }
+            setShowAnswer(!showAnswer);
+          }}
           className={`w-full py-3.5 rounded-xl font-bold text-sm tracking-wide border flex items-center justify-center space-x-2 transition-all cursor-pointer bg-card hover:bg-muted text-foreground ${
             showAnswer
               ? "border-[#22c55e]"

@@ -76,6 +76,7 @@ export default function Home() {
     updateNotificationTime,
     sendTestNotification,
     toggleDifficultyExclusion,
+    recordStudyActivity,
     progress,
   } = useStudyState(addToast);
 
@@ -353,16 +354,19 @@ export default function Home() {
 
   const handlePrev = () => {
     if (activeQueue.length <= 1) return;
+    recordStudyActivity();
     setActiveQueueIndex((prev) => (prev - 1 + activeQueue.length) % activeQueue.length);
   };
 
   const handleNext = () => {
     if (activeQueue.length <= 1) return;
+    recordStudyActivity();
     setActiveQueueIndex((prev) => (prev + 1) % activeQueue.length);
   };
 
   const handleRandom = () => {
     if (activeQueue.length <= 1) return;
+    recordStudyActivity();
     let rand = activeQueueIndex;
     while (rand === activeQueueIndex) {
       rand = Math.floor(Math.random() * activeQueue.length);
@@ -633,6 +637,7 @@ export default function Home() {
             techId={currentQuestionTechId}
             currentIndex={activeQueueIndex}
             totalQuestions={activeQueue.length}
+            onStudyActivity={recordStudyActivity}
           />
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground space-y-2">
@@ -700,6 +705,9 @@ export default function Home() {
         onSelectChannel={handleSelectChannel}
         progress={progress}
         bookmarks={bookmarks}
+        streakCount={streakCount}
+        longestStreak={longestStreak}
+        studyHistory={studyHistory}
       />
     </div>
   );
