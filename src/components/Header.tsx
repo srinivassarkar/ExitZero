@@ -110,30 +110,18 @@ export function Header({
         <div
           onClick={onOpenChannelSelector}
           className={`flex flex-col min-w-0 ${onOpenChannelSelector ? "cursor-pointer group" : ""}`}
-          title={onOpenChannelSelector ? "Click to switch channel [$ target --profile]" : undefined}
+          title={onOpenChannelSelector ? "Switch Channel [Press T]" : undefined}
         >
-          <span className="text-[10px] uppercase font-extrabold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#00E676] to-[#A3FF1A] select-none font-mono">
-            {activeTechName}
-          </span>
-          <span className="text-xs sm:text-sm font-semibold text-foreground truncate select-none max-w-[80px] min-[360px]:max-w-[105px] min-[480px]:max-w-[170px] sm:max-w-xs md:max-w-md block group-hover:text-[#00E676] transition-colors">
+          <div className="flex items-center space-x-1">
+            <span className="text-[10px] uppercase font-extrabold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#00E676] to-[#A3FF1A] select-none font-mono">
+              {activeTechName}
+            </span>
+            <ChevronDown className="w-3 h-3 text-muted-foreground group-hover:text-[#00E676] transition-colors shrink-0" />
+          </div>
+          <span className="text-xs sm:text-sm font-semibold text-foreground truncate select-none max-w-[140px] min-[360px]:max-w-[180px] min-[480px]:max-w-[240px] sm:max-w-xs md:max-w-md block group-hover:text-[#00E676] transition-colors">
             {activeCategoryName}
           </span>
         </div>
-
-        {/* Target Profile / Channel Selector Trigger */}
-        {onOpenChannelSelector && (
-          <button
-            onClick={onOpenChannelSelector}
-            className="flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-2.5 py-1 rounded-lg border border-[#26303C] bg-[#0B0F14]/70 hover:border-[#00E676]/40 hover:bg-[#151B23] active:scale-95 transition-all cursor-pointer group text-xs font-mono shrink-0"
-            title="Select Study Feed Channel [$ target --profile] [t]"
-          >
-            <span className="w-2 h-2 rounded-full bg-[#00E676] animate-pulse shrink-0" />
-            <span className="text-[#00E676] font-bold sm:hidden">Target</span>
-            <span className="text-muted-foreground hidden sm:inline">$ target</span>
-            <span className="text-[#00E676] font-bold hidden sm:inline">--profile</span>
-            <ChevronDown className="w-3 h-3 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
-          </button>
-        )}
       </div>
 
       {/* Header Actions */}

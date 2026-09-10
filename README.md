@@ -18,66 +18,94 @@ ExitZero is a developer-native, high-performance study engine and troubleshootin
 
 ## Workspaces
 
-ExitZero is organized into three clean, developer-native modules:
+ExitZero is structured into three dedicated workspaces accessible via the sidebar or channel switcher (`T`):
 
 ### 1. 🗂️ Interview Prep
-* **Spaced Repetition (SM-2)**: Smart review queues sorted by recall strength and study state.
-* **6 Curated Topics**: Docker, Kubernetes, AWS, Terraform, Jenkins, and DevOps (600+ questions).
-* **Telemetry**: Auto-reveal answers, difficulty exclusions, progress bars, and custom reminders.
+* **SM-2 Spaced Repetition**: Dynamic queue ordering (overdue cards first, active unseen cards, future reviews) based on recall intervals (`Again`, `Good`, `Easy`).
+* **6 Domains (600+ Questions)**: Docker, Kubernetes, AWS, Terraform, Jenkins, and Linux/DevOps.
+* **Granular Scoping**: Practice individual submodules (e.g., K8s Networking, AWS IAM) or entire domains in an unconstrained queue.
+* **Live Queue Counter**: Real-time position tracking (`1 / 100`) directly on the question card.
 
 ### 2. 📓 Operational Runbooks
-* **On-Call Playbooks**: Diagnostic troubleshooting playbooks for Linux, Git, Networking, Docker, Kubernetes, and Terraform.
-* **Interactive Explorer**: Dual-pane command browser with copy-to-clipboard audio/haptic click chimes, syntax maps, and review cards.
-* **Diagnostics Flow**: Ordered thinking process logs, expected terminal output blocks, and real-world incident post-mortems.
+* **6 On-Call Triage Playbooks**:
+  * 🐧 **Linux**: Kernel panics, OOM killer, disk/inode exhaustion, zombie reaping.
+  * 🔀 **Git**: Reflog recovery, detached HEAD, dangling commits, merge conflict resolution.
+  * 🌐 **Network**: DNS failure, socket exhaustion, iptables/nftables, TCP RST triage.
+  * 🐳 **Docker**: Daemon hang, rootfs corruption, bridge exhaustion, cgroup limits.
+  * ☸️ **Kubernetes**: CrashLoopBackOff, etcd split-brain, pending pods, webhook timeouts.
+  * 📄 **Terraform**: State locks, drift detection, state corruption rollback, untracked imports.
+* **Dual-Pane Diagnostic Console**: Step-by-step triage commands, syntax maps, expected terminal output, and copy-paste runbook actions.
 
 ### 3. 🛡️ Incident Labs
-* **SRE Outage Quiz**: Interactive simulated multiple-choice incident sandbox to run commands and isolate failures in a virtual terminal.
+* **Outage Simulation**: Interactive multiple-choice troubleshooting sandbox for debugging production incidents.
 
 ---
 
-## Features & Advantages (Pros)
+## App Flow
 
-### ⚡ Lightning-Fast Recall
-* **The Pro**: Built around the standard SM-2 algorithm, ensuring you review difficult topics right when you need to, maximizing study efficiency.
-* **Snappy Auto-Advance**: The card queue automatically slides to the next question `800ms` after you record a difficulty score, keeping your study momentum flowing.
+```
+[ Topic Title / Press 'T' ] ──> Channel Selector Modal
+                                  ├── Target Domain (Docker, K8s, AWS, etc.)
+                                  │     ├── Practice Entire Domain (All Qs)
+                                  │     └── Specific Subtopic Module
+                                  ├── Operational Runbook (Linux, Git, K8s...)
+                                  ├── Master Queue (All 600+ DevOps Questions)
+                                  └── Bookmarked Questions
 
-### 🔊 Dynamic Asset-less Audio & Haptics
-* **The Pro**: ExitZero features a custom **Web Audio synthesizer** that generates click ticks and chime waves dynamically in code. The entire app has zero external MP3 asset loads, keeping bundle size microscopic.
-* **Interactive Haptics**: Gives physical vibration pulses on copies, bookmark toggles, and answer reveals.
+[ Study Console ] ──────────────> Question Card (Q# & live queue counter)
+                                  ├── Show/Hide Answer (Code blocks & terminal syntax)
+                                  ├── SM-2 Review (Again / Good / Easy) ──> Auto-advances in 800ms
+                                  ├── Timer Mode (60s–180s countdown with auto-reveal)
+                                  └── Heart (Save to Bookmarks)
 
-### 📶 Offline-First PWA
-* **The Pro**: Built-in service worker caching means you can load and use all playbooks, checklists, and question banks deep in the subway, during a commute, or on-site without any internet connection.
+[ Telemetry & Controls ] ───────> Header / Settings Popover
+                                  ├── Streak Tracker (Consecutive study days + longest streak)
+                                  ├── Daily Study Reminder (Scheduled hour + test alert trigger)
+                                  ├── Difficulty Exclusions (Filter Easy / Medium / Hard)
+                                  └── Sound, Haptics & Dark/Light Theme
+```
 
-### 🔒 Local Privacy & Zero Backend
-* **The Pro**: Your study streak, bookmarks, and SM-2 tracking files reside entirely in your browser's local storage. There are no tracking scripts, database queries, latency, or sign-ups.
+---
+
+## Key Features & Advantages
+
+* **⚡ Offline-First PWA**: Zero network dependency after initial load. Complete question banks and runbooks work on subways, flights, or air-gapped systems.
+* **🔒 100% Client-Side Privacy**: Zero cloud backend, telemetry tracking, or sign-ups. All SRS data, bookmarks, and streaks stay in local browser storage.
+* **🔊 Synthesized Audio & Haptics**: Procedural audio generated via Web Audio API (0 external MP3 downloads) paired with tactile haptic vibration triggers.
+* **⌨️ Keyboard-Driven Ergonomics**:
+  * `Space` / `Enter`: Reveal Answer
+  * `1` / `2` / `3`: Rate Card (`Again` / `Good` / `Easy`)
+  * `←` / `→`: Previous / Next Question
+  * `T`: Open Channel Selector Modal
+  * `/`: Global Search (Fuzzy search powered by Fuse.js)
+  * `Esc`: Close Modals
+* **🔔 Reliable Study Reminders**: Active heartbeat and Service Worker push notifications keep review streaks consistent with an instant test trigger.
 
 ---
 
 ## Local Development
 
 ```bash
-# Clone the repository
+# Clone & install
 git clone https://github.com/srinivassarkar/ExitZero.git
 cd ExitZero
-
-# Install packages
 npm install
 
-# Start local server
+# Start development server
 npm run dev
 
-# Compile static release export
+# Compile static release export (compiles to /out)
 npm run build
 ```
 
-Static output compiles to `/out` — optimized for zero-latency hosting.
-
 ---
 
-## Theme Specifications
-* **Typography**: **Inter** (Body text) & **JetBrains Mono** (System headers & console logs).
-* **Theme**: Premium dark-first workbench palette (`#0B0F14` Background, `#151B23` Surface, `#00E676` Brand green, `#26303C` Borders). Includes a **GitHub Light / Xcode Light** mode fallback.
-* **UI Elements**: Flat minimal cards (12px rounded), high-contrast hover states, visual scrollbars, and dynamic directory breadcrumbs.
+## Tech Stack
+* **Framework**: Next.js 15 (Static Export / Turbopack)
+* **Styling**: Tailwind CSS v4 & Lucide Icons
+* **Search**: Fuse.js (Client-side fuzzy search)
+* **Audio**: Native Web Audio Synthesizer
+* **Typography**: Inter & JetBrains Mono
 
 ---
 
