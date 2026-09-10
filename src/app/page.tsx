@@ -73,6 +73,7 @@ export default function Home() {
     toggleSoundHaptics,
     toggleAutoReveal,
     updateNotificationTime,
+    sendTestNotification,
     toggleDifficultyExclusion,
     progress,
   } = useStudyState(addToast);
@@ -588,6 +589,9 @@ export default function Home() {
           onUpdateNotificationTime={updateNotificationTime}
           difficultyExclusions={difficultyExclusions}
           onToggleDifficultyExclusion={toggleDifficultyExclusion}
+          notifPermission={notifPermission}
+          onSendTestNotification={sendTestNotification}
+          onRequestNotifPermission={handleRequestNotifPermission}
         />
 
         {/* Content routing view */}

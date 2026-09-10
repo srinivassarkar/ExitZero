@@ -106,7 +106,7 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
       setSessionCount(currentSessions);
       localStorage.setItem("exitzero_session_count", currentSessions.toString());
 
-      // 8. Streak Logic
+      // 8. Streak Validation (Only maintain active streak if studied today or yesterday)
       const storedStreak = localStorage.getItem("exitzero_streak_count");
       const storedLongest = localStorage.getItem("exitzero_longest_streak");
       const storedLastDate = localStorage.getItem("exitzero_last_study_date");
@@ -117,30 +117,15 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
       const today = new Date().toLocaleDateString('en-CA');
       const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('en-CA');
 
-      if (storedLastDate === today) {
-        // Already active today, do nothing
-      } else if (storedLastDate === yesterday) {
-        // Continued streak
-        currentStreak += 1;
-        localStorage.setItem("exitzero_streak_count", currentStreak.toString());
-        localStorage.setItem("exitzero_last_study_date", today);
+      if (storedLastDate === today || storedLastDate === yesterday) {
+        // Streak is currently alive (user studied today or yesterday)
       } else {
-        // Streak broke or first time
-        if (storedLastDate !== null) {
-          currentStreak = 1;
-          localStorage.setItem("exitzero_streak_count", "1");
-          localStorage.setItem("exitzero_last_study_date", today);
-          addToast("Streak reset. Start again today 💪", 4);
-        } else {
-          currentStreak = 1;
-          localStorage.setItem("exitzero_streak_count", "1");
-          localStorage.setItem("exitzero_last_study_date", today);
+        // Streak broken: more than 1 day has passed without review
+        if (currentStreak > 0) {
+          addToast("Study streak reset. Answer questions today to start a new streak! 💪", 4);
         }
-      }
-
-      if (currentStreak > currentLongest) {
-        currentLongest = currentStreak;
-        localStorage.setItem("exitzero_longest_streak", currentLongest.toString());
+        currentStreak = 0;
+        localStorage.setItem("exitzero_streak_count", "0");
       }
 
       setStreakCount(currentStreak);
@@ -229,8 +214,40 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
       return updated;
     });
 
-    // Update study date and send to service worker
+    // Record and advance study streak upon actual card review
     const today = new Date().toLocaleDateString('en-CA');
+    const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('en-CA');
+    const storedLastDate = localStorage.getItem("exitzero_last_study_date");
+    const storedStreak = localStorage.getItem("exitzero_streak_count");
+    let currentStreak = storedStreak ? parseInt(storedStreak, 10) : 0;
+    let currentLongest = localStorage.getItem("exitzero_longest_streak")
+      ? parseInt(localStorage.getItem("exitzero_longest_streak")!, 10)
+      : 0;
+
+    if (storedLastDate === today) {
+      // Already studied today - streak is actively maintained
+    } else if (storedLastDate === yesterday) {
+      // Continued streak from yesterday!
+      currentStreak += 1;
+      localStorage.setItem("exitzero_streak_count", currentStreak.toString());
+      localStorage.setItem("exitzero_last_study_date", today);
+      addToast(`🔥 Day streak extended to ${currentStreak} days!`, 3);
+    } else {
+      // First review ever or streak reset after gap
+      currentStreak = 1;
+      localStorage.setItem("exitzero_streak_count", "1");
+      localStorage.setItem("exitzero_last_study_date", today);
+      addToast("🔥 1-day study streak started!", 3);
+    }
+
+    if (currentStreak > currentLongest) {
+      currentLongest = currentStreak;
+      localStorage.setItem("exitzero_longest_streak", currentLongest.toString());
+    }
+
+    setStreakCount(currentStreak);
+    setLongestStreak(currentLongest);
+
     localStorage.setItem("exitzero_last_study_date", today);
     localStorage.setItem("exitzero_last_active", today);
     if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
@@ -309,6 +326,97 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
     }
   };
 
+  // Immediate test notification to verify reminders are functioning
+  const sendTestNotification = () => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      addToast("Notifications are not supported by this browser", 3);
+      return;
+    }
+
+    if (Notification.permission === "granted") {
+      try {
+        if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: "TEST_NOTIFICATION" });
+        } else {
+          new Notification("ExitZero 💻 [Test Reminder]", {
+            body: "✓ Daily study reminders are working properly!",
+            icon: "/icon-192.png",
+          });
+        }
+        addToast("✓ Test reminder sent! Check your notifications.", 4);
+      } catch (e) {
+        addToast("Test notification sent!", 3);
+      }
+    } else if (Notification.permission === "denied") {
+      addToast("Notifications are blocked in your browser settings", 4);
+    } else {
+      Notification.requestPermission().then((perm) => {
+        const status = perm === "default" ? "pending" : perm;
+        updateNotifPermission(status);
+        if (perm === "granted") {
+          addToast("✓ Notifications enabled! Sending test reminder...", 3);
+          try {
+            new Notification("ExitZero 💻 [Test Reminder]", {
+              body: "✓ Daily study reminders are now enabled!",
+              icon: "/icon-192.png",
+            });
+          } catch (e) {}
+        } else {
+          addToast("Notification permission was not granted", 3);
+        }
+      });
+    }
+  };
+
+  // Active client-side reminder heartbeat
+  useEffect(() => {
+    const checkReminder = () => {
+      if (typeof window === "undefined" || !("Notification" in window)) return;
+      if (Notification.permission !== "granted") return;
+
+      const now = new Date();
+      const currentHour = now.getHours().toString().padStart(2, "0");
+      const currentMinute = now.getMinutes().toString().padStart(2, "0");
+      const currentTime = `${currentHour}:${currentMinute}`;
+
+      const savedTime = localStorage.getItem("exitzero_notification_time") || "21:00";
+      const today = now.toLocaleDateString("en-CA");
+      const lastStudyDate = localStorage.getItem("exitzero_last_study_date");
+      const lastNotifiedDate = localStorage.getItem("exitzero_last_notified_date");
+
+      if (currentTime >= savedTime && lastStudyDate !== today && lastNotifiedDate !== today) {
+        localStorage.setItem("exitzero_last_notified_date", today);
+        try {
+          if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({
+              type: "DAILY_REMINDER_TRIGGER",
+            });
+          } else {
+            new Notification("ExitZero 💻", {
+              body: "You haven't practiced your DevOps questions today. Keep your streak alive!",
+              icon: "/icon-192.png",
+              tag: "daily-study-reminder",
+            });
+          }
+        } catch (e) {
+          console.error("Failed to trigger reminder notification", e);
+        }
+      }
+    };
+
+    checkReminder();
+    const timer = setInterval(checkReminder, 30000);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") checkReminder();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
+
   const toggleDifficultyExclusion = (difficulty: string) => {
     setDifficultyExclusions((prev) => {
       const updated = prev.includes(difficulty)
@@ -354,6 +462,7 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
     toggleSoundHaptics,
     toggleAutoReveal,
     updateNotificationTime,
+    sendTestNotification,
     toggleDifficultyExclusion,
   };
 }

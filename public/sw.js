@@ -105,6 +105,22 @@ self.addEventListener("message", (event) => {
           });
         })
       );
+    } else if (event.data.type === "TEST_NOTIFICATION") {
+      self.registration.showNotification("ExitZero 💻 [Test Reminder]", {
+        body: "✓ Daily study reminders are working properly!",
+        icon: "./icon-192.png",
+        badge: "./icon-192.png",
+        tag: "test-reminder",
+        data: { url: "/" },
+      });
+    } else if (event.data.type === "DAILY_REMINDER_TRIGGER") {
+      self.registration.showNotification("ExitZero 💻", {
+        body: "You haven't practiced your DevOps questions today. Keep your streak alive!",
+        icon: "./icon-192.png",
+        badge: "./icon-192.png",
+        tag: "daily-reminder",
+        data: { url: "/" },
+      });
     }
   }
 });
