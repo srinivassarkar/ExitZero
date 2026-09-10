@@ -616,7 +616,7 @@ export default function Home() {
             setActiveTool={setActiveRunbookTool}
           />
         ) : activeTechId === "incident_labs" ? (
-          <IncidentLabsView />
+          <IncidentLabsView soundHapticsEnabled={soundHapticsEnabled} />
         ) : activeQuestion ? (
           <QuestionViewer
             question={activeQuestion}
