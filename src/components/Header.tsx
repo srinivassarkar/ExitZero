@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef, useMemo } from "react";
-import { Search, Sun, Moon, Menu, Clock, Settings, ChevronDown, Bell } from "lucide-react";
+import { Search, Sun, Moon, Menu, Clock, Settings, ChevronDown, Bell, EyeOff } from "lucide-react";
 
 interface HeaderProps {
   onMenuToggle: () => void;
@@ -9,6 +9,7 @@ interface HeaderProps {
   onOpenChannelSelector?: () => void;
   activeTechName: string;
   activeCategoryName: string;
+  onToggleHeadlessMode?: () => void;
   streakCount: number;
   longestStreak: number;
   timerMode: boolean;
@@ -36,6 +37,7 @@ export function Header({
   onOpenChannelSelector,
   activeTechName,
   activeCategoryName,
+  onToggleHeadlessMode,
   streakCount,
   longestStreak,
   timerMode,
@@ -167,6 +169,21 @@ export function Header({
             <span className="hidden sm:inline">Timer</span>
           </button>
 
+          {/* Headless Mode Toggle */}
+          {onToggleHeadlessMode && (
+            <button
+              onClick={onToggleHeadlessMode}
+              className="hidden md:flex p-1.5 md:p-2 rounded-lg items-center space-x-1.5 text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-secondary/40 border border-transparent transition-all cursor-pointer shrink-0"
+              title="Enter Headless Mode (Press 'H')"
+            >
+              <EyeOff className="w-4 h-4 text-[#00E676]" />
+              <span className="hidden lg:inline">Headless</span>
+              <kbd className="hidden lg:inline-flex px-1.5 py-0.2 bg-card border border-border text-[#00E676] rounded text-[9px] font-mono select-none">
+                H
+              </kbd>
+            </button>
+          )}
+
           {/* Settings Button */}
           <button
             onClick={() => setIsSettingsOpen(!isSettingsOpen)}
@@ -287,6 +304,30 @@ export function Header({
                     />
                   </button>
                 </div>
+
+                {/* Headless Mode Row */}
+                {onToggleHeadlessMode && (
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="flex items-center space-x-1.5">
+                      <EyeOff className="w-3.5 h-3.5 text-[#00E676]" />
+                      <span className="text-xs font-semibold text-foreground">
+                        Headless Mode
+                      </span>
+                      <kbd className="px-1.5 py-0.2 bg-card border border-border text-[#00E676] rounded text-[9px] font-mono select-none">
+                        H
+                      </kbd>
+                    </div>
+                    <button
+                      onClick={() => {
+                        onToggleHeadlessMode();
+                        setIsSettingsOpen(false);
+                      }}
+                      className="px-2 py-1 text-[10px] font-mono rounded-md border border-border bg-muted hover:bg-muted/80 text-foreground transition-colors cursor-pointer"
+                    >
+                      Enter
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Notification reminder section */}

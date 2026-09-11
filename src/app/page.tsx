@@ -80,6 +80,7 @@ export default function Home() {
   } = useStudyState(addToast);
 
   // App navigation state
+  const [isHeadlessMode, setIsHeadlessMode] = useState(false);
   const [activeTechId, setActiveTechId] = useState("docker");
   const [activeCategoryId, setActiveCategoryId] = useState(1);
   const [activeQuestionId, setActiveQuestionId] = useState(1);
@@ -325,7 +326,22 @@ export default function Home() {
         return;
       }
 
-      if (e.key === "/" || (e.ctrlKey && e.key === "k")) {
+      if (e.key === "h" || e.key === "H") {
+        e.preventDefault();
+        setIsHeadlessMode((prev) => {
+          const next = !prev;
+          if (next) {
+            addToast("🕶️ Headless Mode active — UI chrome hidden (Press 'H' or Esc to exit)", 3);
+          } else {
+            addToast("Heads-up display restored", 2);
+          }
+          return next;
+        });
+      } else if (e.key === "Escape" && isHeadlessMode) {
+        e.preventDefault();
+        setIsHeadlessMode(false);
+        addToast("Heads-up display restored", 2);
+      } else if (e.key === "/" || (e.ctrlKey && e.key === "k")) {
         e.preventDefault();
         setIsSearchOpen(true);
       } else if (e.key === "ArrowLeft") {
@@ -515,88 +531,114 @@ export default function Home() {
   const showInstallBanner = isMobile && !installDismissed && !isStandalone;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background text-foreground">
+    <div className="flex h-screen overflow-hidden bg-background text-foreground relative">
       {/* Sidebar Navigation */}
-      <Sidebar
-        activeTechId={isStudyingSaved ? "saved_study" : activeTechId}
-        setActiveTechId={(id) => {
-          if (id === "saved") {
+      {!isHeadlessMode && (
+        <Sidebar
+          activeTechId={isStudyingSaved ? "saved_study" : activeTechId}
+          setActiveTechId={(id) => {
+            if (id === "saved") {
+              setIsStudyingSaved(false);
+              setActiveTechId("saved");
+            } else {
+              setIsStudyingSaved(false);
+              setActiveTechId(id);
+            }
+            setIsSidebarOpen(false);
+          }}
+          activeCategoryId={activeCategoryId}
+          setActiveCategoryId={(id) => {
             setIsStudyingSaved(false);
-            setActiveTechId("saved");
-          } else {
-            setIsStudyingSaved(false);
-            setActiveTechId(id);
-          }
-          setIsSidebarOpen(false);
-        }}
-        activeCategoryId={activeCategoryId}
-        setActiveCategoryId={(id) => {
-          setIsStudyingSaved(false);
-          setActiveCategoryId(id);
-        }}
-        setActiveQuestionId={setActiveQuestionId}
-        progress={progress}
-        bookmarks={bookmarks}
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        activeRunbookTool={activeRunbookTool}
-        setActiveRunbookTool={setActiveRunbookTool}
-      />
+            setActiveCategoryId(id);
+          }}
+          setActiveQuestionId={setActiveQuestionId}
+          progress={progress}
+          bookmarks={bookmarks}
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          activeRunbookTool={activeRunbookTool}
+          setActiveRunbookTool={setActiveRunbookTool}
+        />
+      )}
 
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 h-screen relative">
-        <Header
-          onMenuToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-          onSearchOpen={() => setIsSearchOpen(true)}
-          onOpenChannelSelector={() => setIsChannelSelectorOpen(true)}
-          activeTechName={
-            isStudyingSaved
-              ? "Study Session"
-              : activeTechId === "saved"
-              ? "Bookmarks"
-              : activeTechId === "all"
-              ? "All DevOps"
-              : activeTechId === "runbooks"
-              ? "Runbooks"
-              : activeTechId === "incident_labs"
-              ? "Incident Labs"
-              : technologies.find((t) => t.id === activeTechId)?.name || ""
-          }
-          activeCategoryName={
-            isStudyingSaved
-              ? "Saved Bookmarks"
-              : activeTechId === "saved"
-              ? "Saved Questions List"
-              : activeTechId === "all"
-              ? "All Questions Queue"
-              : activeTechId === "runbooks"
-              ? runbooksList.find((r) => r.key === activeRunbookTool)?.name || "Operational Procedures"
-              : activeTechId === "incident_labs"
-              ? "Troubleshooting Sandbox"
-              : activeCategoryId === -1
-              ? "All Modules"
-              : activeCategory?.title || ""
-          }
-          streakCount={streakCount}
-          longestStreak={longestStreak}
-          timerMode={timerMode}
-          onToggleTimerMode={toggleTimerMode}
-          timerDuration={timerDuration}
-          onUpdateTimerDuration={updateTimerDuration}
-          timerAutoAdvance={timerAutoAdvance}
-          onToggleTimerAutoAdvance={toggleTimerAutoAdvance}
-          soundHapticsEnabled={soundHapticsEnabled}
-          onToggleSoundHaptics={toggleSoundHaptics}
-          autoRevealEnabled={autoRevealEnabled}
-          onToggleAutoReveal={toggleAutoReveal}
-          notificationTime={notificationTime}
-          onUpdateNotificationTime={updateNotificationTime}
-          difficultyExclusions={difficultyExclusions}
-          onToggleDifficultyExclusion={toggleDifficultyExclusion}
-          notifPermission={notifPermission}
-          onSendTestNotification={sendTestNotification}
-          onRequestNotifPermission={handleRequestNotifPermission}
-        />
+        {!isHeadlessMode ? (
+          <Header
+            onMenuToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+            onSearchOpen={() => setIsSearchOpen(true)}
+            onOpenChannelSelector={() => setIsChannelSelectorOpen(true)}
+            onToggleHeadlessMode={() => {
+              setIsHeadlessMode(true);
+              addToast("🕶️ Headless Mode active — UI chrome hidden (Press 'H' or Esc to exit)", 3);
+            }}
+            activeTechName={
+              isStudyingSaved
+                ? "Study Session"
+                : activeTechId === "saved"
+                ? "Bookmarks"
+                : activeTechId === "all"
+                ? "All DevOps"
+                : activeTechId === "runbooks"
+                ? "Runbooks"
+                : activeTechId === "incident_labs"
+                ? "Incident Labs"
+                : technologies.find((t) => t.id === activeTechId)?.name || ""
+            }
+            activeCategoryName={
+              isStudyingSaved
+                ? "Saved Bookmarks"
+                : activeTechId === "saved"
+                ? "Saved Questions List"
+                : activeTechId === "all"
+                ? "All Questions Queue"
+                : activeTechId === "runbooks"
+                ? runbooksList.find((r) => r.key === activeRunbookTool)?.name || "Operational Procedures"
+                : activeTechId === "incident_labs"
+                ? "Troubleshooting Sandbox"
+                : activeCategoryId === -1
+                ? "All Modules"
+                : activeCategory?.title || ""
+            }
+            streakCount={streakCount}
+            longestStreak={longestStreak}
+            timerMode={timerMode}
+            onToggleTimerMode={toggleTimerMode}
+            timerDuration={timerDuration}
+            onUpdateTimerDuration={updateTimerDuration}
+            timerAutoAdvance={timerAutoAdvance}
+            onToggleTimerAutoAdvance={toggleTimerAutoAdvance}
+            soundHapticsEnabled={soundHapticsEnabled}
+            onToggleSoundHaptics={toggleSoundHaptics}
+            autoRevealEnabled={autoRevealEnabled}
+            onToggleAutoReveal={toggleAutoReveal}
+            notificationTime={notificationTime}
+            onUpdateNotificationTime={updateNotificationTime}
+            difficultyExclusions={difficultyExclusions}
+            onToggleDifficultyExclusion={toggleDifficultyExclusion}
+            notifPermission={notifPermission}
+            onSendTestNotification={sendTestNotification}
+            onRequestNotifPermission={handleRequestNotifPermission}
+          />
+        ) : (
+          /* Headless Mode Exit Pill */
+          <div className="fixed top-3 right-4 z-50 animate-in fade-in slide-in-from-top-2 duration-200 select-none">
+            <button
+              onClick={() => {
+                setIsHeadlessMode(false);
+                addToast("Heads-up display restored", 2);
+              }}
+              className="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-card/90 backdrop-blur-md border border-border text-muted-foreground hover:text-foreground text-xs font-mono shadow-xl hover:border-[#00E676] transition-all cursor-pointer group"
+              title="Exit Headless Mode (Press 'H' or 'Esc')"
+            >
+              <span className="w-2 h-2 rounded-full bg-[#00E676] animate-pulse" />
+              <span className="font-semibold text-foreground">Headless Mode</span>
+              <span className="text-[10px] text-muted-foreground group-hover:text-foreground px-1.5 py-0.2 rounded bg-secondary border border-border">
+                H / Esc
+              </span>
+            </button>
+          </div>
+        )}
 
         {/* Content routing view */}
         {activeTechId === "saved" && !isStudyingSaved ? (
