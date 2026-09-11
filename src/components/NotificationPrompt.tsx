@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { isIosDevice, isStandalonePwa } from "@/utils/platform";
 
 interface NotificationPromptProps {
   onAccept: () => void;
@@ -9,9 +10,13 @@ interface NotificationPromptProps {
 
 export function NotificationPrompt({ onAccept, onDecline }: NotificationPromptProps) {
   const [mounted, setMounted] = useState(false);
+  const [isIosNotStandalone, setIsIosNotStandalone] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 100);
+    if (isIosDevice() && !isStandalonePwa()) {
+      setIsIosNotStandalone(true);
+    }
     return () => clearTimeout(t);
   }, []);
 
@@ -30,6 +35,11 @@ export function NotificationPrompt({ onAccept, onDecline }: NotificationPromptPr
           <p className="text-xs text-[#94a3b8] leading-relaxed">
             Get a reminder at 9pm if you haven&apos;t studied that day.
           </p>
+          {isIosNotStandalone && (
+            <div className="p-2 rounded bg-sky-500/10 border border-sky-500/20 text-[11px] text-sky-300 font-mono leading-relaxed mt-1">
+              📱 <strong>iOS Tip:</strong> Tap <strong>Share ⎋</strong> → <strong>Add to Home Screen</strong> so your device allows reminder alerts.
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 pt-1">

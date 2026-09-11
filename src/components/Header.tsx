@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import { Search, Sun, Moon, Menu, Clock, Settings, ChevronDown, Bell, EyeOff } from "lucide-react";
+import { isIosDevice, isStandalonePwa } from "@/utils/platform";
 
 interface HeaderProps {
   onMenuToggle: () => void;
@@ -60,6 +61,7 @@ export function Header({
 }: HeaderProps) {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isIosNotStandalone, setIsIosNotStandalone] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
 
   // Initialize theme from localStorage/system preference
@@ -72,6 +74,10 @@ export function Header({
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
+    }
+
+    if (isIosDevice() && !isStandalonePwa()) {
+      setIsIosNotStandalone(true);
     }
   }, []);
 
@@ -385,6 +391,15 @@ export function Header({
                     </button>
                   )}
                 </div>
+
+                {isIosNotStandalone && (
+                  <div className="p-2 rounded-lg bg-sky-500/10 border border-sky-500/25 text-[11px] text-sky-300 flex items-start gap-1.5 leading-snug font-mono">
+                    <span className="text-xs shrink-0">💡</span>
+                    <span>
+                      <strong>iOS Tip:</strong> Tap <strong>Share ⎋</strong> → <strong>Add to Home Screen</strong> to enable reminder notifications.
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Exclusions */}

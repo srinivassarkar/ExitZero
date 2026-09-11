@@ -15,6 +15,7 @@ import { ChannelSelector, runbooksList } from "@/components/ChannelSelector";
 import { rawData, technologies, Question, Category, allQuestions } from "@/data";
 import { useStudyState, StudyStatus } from "@/hooks/useStudyState";
 import { playSoundEffect, triggerHapticFeedback } from "@/utils/audio";
+import { isIosDevice } from "@/utils/platform";
 
 interface ToastItem {
   id: string;
@@ -498,7 +499,11 @@ export default function Home() {
     setShowNotifPrompt(false);
     if (!("Notification" in window)) {
       updateNotifPermission("denied");
-      addToast("Notifications are not supported by this browser", 3);
+      if (isIosDevice()) {
+        addToast("On iOS, notifications require adding ExitZero to your Home Screen 📲", 4);
+      } else {
+        addToast("Notifications are not supported by this browser", 3);
+      }
       return;
     }
 

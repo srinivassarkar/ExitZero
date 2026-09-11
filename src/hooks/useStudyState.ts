@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { requestPersistentStorage, isIosDevice } from "@/utils/platform";
 
 export type StudyStatus = "unseen" | "studying" | "mastered";
 
@@ -141,7 +142,9 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
           date: today,
         });
       }
-
+      
+      // Request persistent device storage to prevent mobile OS data eviction
+      requestPersistentStorage();
     } catch (e) {
       console.error("Failed to load/process ExitZero local storage", e);
     }
@@ -336,18 +339,38 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
   // Immediate test notification to verify reminders are functioning
   const sendTestNotification = () => {
     if (typeof window === "undefined" || !("Notification" in window)) {
-      addToast("Notifications are not supported by this browser", 3);
+      if (isIosDevice()) {
+        addToast("On iOS, notifications require adding ExitZero to your Home Screen 📲", 4);
+      } else {
+        addToast("Notifications are not supported by this browser", 3);
+      }
       return;
     }
 
     if (Notification.permission === "granted") {
       try {
-        if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
-          navigator.serviceWorker.controller.postMessage({ type: "TEST_NOTIFICATION" });
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker.ready
+            .then((reg) => {
+              reg.showNotification("ExitZero 💻 [Test Reminder]", {
+                body: "✓ Daily study reminders are working properly!",
+                icon: "./icon-192.png",
+                badge: "./icon-192.png",
+                tag: "test-reminder",
+              });
+            })
+            .catch(() => {
+              try {
+                new Notification("ExitZero 💻 [Test Reminder]", {
+                  body: "✓ Daily study reminders are working properly!",
+                  icon: "./icon-192.png",
+                });
+              } catch (e) {}
+            });
         } else {
           new Notification("ExitZero 💻 [Test Reminder]", {
             body: "✓ Daily study reminders are working properly!",
-            icon: "/icon-192.png",
+            icon: "./icon-192.png",
           });
         }
         addToast("✓ Test reminder sent! Check your notifications.", 4);
@@ -363,10 +386,21 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
         if (perm === "granted") {
           addToast("✓ Notifications enabled! Sending test reminder...", 3);
           try {
-            new Notification("ExitZero 💻 [Test Reminder]", {
-              body: "✓ Daily study reminders are now enabled!",
-              icon: "/icon-192.png",
-            });
+            if ("serviceWorker" in navigator) {
+              navigator.serviceWorker.ready.then((reg) => {
+                reg.showNotification("ExitZero 💻 [Test Reminder]", {
+                  body: "✓ Daily study reminders are now enabled!",
+                  icon: "./icon-192.png",
+                  badge: "./icon-192.png",
+                  tag: "test-reminder",
+                });
+              });
+            } else {
+              new Notification("ExitZero 💻 [Test Reminder]", {
+                body: "✓ Daily study reminders are now enabled!",
+                icon: "./icon-192.png",
+              });
+            }
           } catch (e) {}
         } else {
           addToast("Notification permission was not granted", 3);
@@ -375,11 +409,10 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
     }
   };
 
-  // Active client-side reminder heartbeat
+  // Active client-side reminder heartbeat & wake/foreground listener
   useEffect(() => {
     const checkReminder = () => {
-      if (typeof window === "undefined" || !("Notification" in window)) return;
-      if (Notification.permission !== "granted") return;
+      if (typeof window === "undefined") return;
 
       const now = new Date();
       const currentHour = now.getHours().toString().padStart(2, "0");
@@ -391,36 +424,68 @@ export function useStudyState(addToast: (msg: string, duration?: number) => void
       const lastStudyDate = localStorage.getItem("exitzero_last_study_date");
       const lastNotifiedDate = localStorage.getItem("exitzero_last_notified_date");
 
+      // Trigger if current time is past reminder time AND user hasn't studied today AND hasn't been reminded today
       if (currentTime >= savedTime && lastStudyDate !== today && lastNotifiedDate !== today) {
         localStorage.setItem("exitzero_last_notified_date", today);
-        try {
-          if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
-            navigator.serviceWorker.controller.postMessage({
-              type: "DAILY_REMINDER_TRIGGER",
-            });
-          } else {
-            new Notification("ExitZero 💻", {
-              body: "You haven't practiced your DevOps questions today. Keep your streak alive!",
-              icon: "/icon-192.png",
-              tag: "daily-study-reminder",
-            });
+
+        // 1. In-app banner: guaranteed to be seen whenever user unlocks or opens the app
+        addToast("🔔 Daily Reminder: You haven't practiced DevOps today. Keep your streak alive! 🔥", 5);
+
+        // 2. Dispatch system / Service Worker notification if permissions are granted
+        if ("Notification" in window && Notification.permission === "granted") {
+          try {
+            if ("serviceWorker" in navigator) {
+              navigator.serviceWorker.ready
+                .then((reg) => {
+                  reg.showNotification("ExitZero 💻", {
+                    body: "You haven't practiced your DevOps questions today. Keep your streak alive!",
+                    icon: "./icon-192.png",
+                    badge: "./icon-192.png",
+                    tag: "daily-study-reminder",
+                  });
+                })
+                .catch(() => {
+                  try {
+                    new Notification("ExitZero 💻", {
+                      body: "You haven't practiced your DevOps questions today. Keep your streak alive!",
+                      icon: "./icon-192.png",
+                      tag: "daily-study-reminder",
+                    });
+                  } catch (e) {}
+                });
+            } else {
+              new Notification("ExitZero 💻", {
+                body: "You haven't practiced your DevOps questions today. Keep your streak alive!",
+                icon: "./icon-192.png",
+                tag: "daily-study-reminder",
+              });
+            }
+          } catch (e) {
+            console.error("Failed to trigger reminder notification", e);
           }
-        } catch (e) {
-          console.error("Failed to trigger reminder notification", e);
         }
       }
     };
 
     checkReminder();
     const timer = setInterval(checkReminder, 30000);
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") checkReminder();
+
+    // Re-check whenever phone is unlocked, tab is switched, or page is restored from freeze
+    const handleWakeup = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        checkReminder();
+      }
     };
-    document.addEventListener("visibilitychange", handleVisibility);
+
+    document.addEventListener("visibilitychange", handleWakeup);
+    window.addEventListener("focus", handleWakeup);
+    window.addEventListener("pageshow", handleWakeup);
 
     return () => {
       clearInterval(timer);
-      document.removeEventListener("visibilitychange", handleVisibility);
+      document.removeEventListener("visibilitychange", handleWakeup);
+      window.removeEventListener("focus", handleWakeup);
+      window.removeEventListener("pageshow", handleWakeup);
     };
   }, []);
 
